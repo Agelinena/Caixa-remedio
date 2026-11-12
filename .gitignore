@@ -1,0 +1,27 @@
+# Flutter (a pasta android/ é gerada no Actions a partir de app/android_extra)
+app/android/
+app/ios/
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.metadata
+app/pubspec.lock
+app/test/widget_test.dart
+
+# PlatformIO
+firmware/.pio/
+firmware/.vscode/
+
+# Chaves: nunca no repositório
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+chaves-android/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
