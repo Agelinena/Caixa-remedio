@@ -6,7 +6,8 @@
 static const uint8_t N_DIAS = 7;                       // 0 = Domingo ... 6 = Sabado
 
 // LEDs direto no ESP32: GPIO -> resistor 330 ohm -> LED (perna longa) -> GND. Nivel alto = aceso.
-static const uint8_t LED_PINS[N_DIAS]  = {13, 14, 27, 16, 17, 18, 19};
+static const uint8_t LED_PINS[N_DIAS]  = {13, 14, 27, 16, 15, 18, 19};  // a placa do usuario nao tem o 17
+// 15 e pino de boot: com o LED para o GND ele fica em LOW no boot, o que so desliga o log da ROM. Boot normal.
 
 // Reeds: reed entre o GPIO e o GND. Tampa fechada (ima perto) = LOW. Tampa aberta = HIGH.
 // 34 e 35 sao so entrada e NAO tem pull-up interno: resistor de 10k do pino para o 3V3.

@@ -128,19 +128,19 @@ Placa: ESP32 DevKit 30 pinos. Evitar para saídas: GPIO 0, 2, 5, 12, 15 (boot/st
 | Função | Pinos do ESP32 | Detalhe |
 |---|---|---|
 | RTC DS3231 (I2C) | SDA = **21**, SCL = **22** | Padrão do ESP32. Não usar esses pinos para mais nada |
-| LEDs (7), dias 0..6 | **13, 14, 27, 16, 17, 18, 19** | GPIO → resistor 330 Ω → LED (perna longa) → GND. Nível alto = aceso |
+| LEDs (7), dias 0..6 | **13, 14, 27, 16, 15, 18, 19** | GPIO → resistor 330 Ω → LED (perna longa) → GND. Nível alto = aceso. A placa do usuário **não tem o GPIO 17**; o 15 (boot) serve porque o LED para o GND o mantém em LOW no boot, que só desliga o log da ROM |
 | Reeds (7), dias 0..6 | **23, 25, 26, 32, 33, 34, 35** | cada reed entre o GPIO e GND. 23–33: pull-up interno. **34 e 35: resistor de 10 kΩ do pino para o 3V3** |
 | Buzzer (via transistor) | **4** | GPIO → 1 kΩ → base do NPN; emissor em GND; buzzer entre 5 V (VIN) e coletor |
 | Botão | **36 (VP)** | botão entre o GPIO e GND + **resistor de 10 kΩ do pino para o 3V3** |
 | Reserva | 39 (VN, só entrada) | |
 
 Mudança de 2026-11-18: o 74HC595 saiu (o usuário não tem; o CD4511 não serve). LEDs direto nos GPIOs;
-reeds e botão foram para pinos que sobraram, incluindo os só-entrada 34, 35 e 36. Nenhum pino de boot é usado.
+reeds e botão foram para pinos que sobraram, incluindo os só-entrada 34, 35 e 36. Só o GPIO 15 (boot) é usado, para um LED (a placa não tem o 17).
 
 ### 5.1 Mapeamento sugerido (PROPOSTO)
 Índice do dia 0 = Domingo … 6 = Sábado. `REED_PINS[i]` e `LED_PINS[i]` correspondem ao mesmo dia.
 ```cpp
-const uint8_t LED_PINS[7]  = {13, 14, 27, 16, 17, 18, 19};
+const uint8_t LED_PINS[7]  = {13, 14, 27, 16, 15, 18, 19};
 const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 34, 35};
 ```
 
