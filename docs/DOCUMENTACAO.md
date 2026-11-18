@@ -1,6 +1,6 @@
 # Documentação do projeto: Caixa de remédios inteligente (IoT)
 
-Versão do documento: 1.2 · Estado: **modelo 3D v2 impresso; v3 (dobradiça de encaixe, reed pela frente) gerada; eletrônica não testada em hardware**
+Versão do documento: 1.2 · Estado: **modelo 3D v2 impresso; v3 (dobradiça de encaixe, reed deitado) gerada; eletrônica não testada em hardware**
 
 Legenda usada ao longo do texto:
 - **DECIDIDO**: o usuário aprovou ou escolheu.
@@ -234,7 +234,8 @@ v2 (primeira impressão) em `cad/caixa_remedios_v2.scad`, `cad/stl/v2/`, `cad/pr
 | Dobradiça | pino de filamento de 152 mm atravessando orelhas | **encaixe**: cada tampa tem um eixo impresso (Ø 3,2) entre dois braços; o corpo tem um grampo em C por compartimento, boca para trás. A tampa clica e sai sem ferramenta |
 | Firmeza da tampa | só a trava frontal; folga lateral livre | **saia em U** (frente + laterais, 2,4 mm) que entra no compartimento com 0,15 mm de folga por lado: a tampa não balança e fecha o compartimento |
 | Trava frontal | ressalto simétrico de 0,5 mm | ressalto de 0,55 mm com **rampa longa para fechar e degrau curto para segurar**; canaleta de 0,7 mm no corpo; aba de 1,4 mm |
-| Reed | entra por baixo, rasgo fechado por cima (não dava para colocar) | entra **pela frente**, por uma janelinha no alto da parede frontal; um degrau segura o vidro com o topo a 2 mm do topo do corpo (≈2,15 mm do ímã); as pernas descem por um canal estreito, também aberto na frente, até a bay |
+| Reed | em pé, entrava por baixo (não dava para colocar e, em pé, não aciona) | **deitado** (horizontal, ao longo da fileira) num canal aberto no topo da parede frontal, rente à borda da tampa; topo do vidro a 0,1 mm do topo do corpo (≈0,25 mm do ímã). As pernas dobram a 2 mm do vidro e descem por **canais abertos na frente** até a bay (emendar fio) |
+| Ímã | em cima da ponta do reed em pé | na tampa, em cima do vidro, **deslocado 4,5 mm do centro** (`mag_dx`): com ímã de disco deitado, o centro do reed é ponto morto |
 | ESP32 | 2,1 mm longe da parede, garras + 4 apoios de canto, folga grande | a ponta do lado do USB entra 0,8 mm num **rasgo da própria parede** (conector USB-C fica dentro do furo); trilho frontal no comprimento todo, a parede traseira é o outro trilho (0,15 mm de folga); 2 batentes no teto; gancho flexível na ponta da antena |
 | Furo do USB-C | retangular | cantos arredondados (13 × 7,5) |
 | Prévias | só a caixa | também **componentes montados** (vista de baixo, transparente e corte do reed) |
@@ -242,7 +243,7 @@ v2 (primeira impressão) em `cad/caixa_remedios_v2.scad`, `cad/stl/v2/`, `cad/pr
 ### 8.2 Medidas dos componentes usadas (e origem)
 | Componente | Valor usado | Origem |
 |---|---|---|
-| Reed (vidro) | 14 × 2,2 mm; canal de 3,9 × 2,6 mm (vidro + terminal de volta), janela de 2,4 mm, canal das pernas de 1,2 mm | Anúncio enviado pelo usuário |
+| Reed (vidro) | 14 × 2,2 mm, terminais de ~15,5 mm; canal do vidro 14,6 × 2,4 mm, canais das pernas 1,4 mm | Anúncio enviado pelo usuário |
 | Ímã | 5 × 1 mm; bolsão de 5,15 × 1,2 mm | Anúncio enviado pelo usuário |
 | LED | 5 mm, aro 5,9 mm | **ASSUMIDO** (trocar `led_d`/`led_flange` para 3 / 3,8 se for de 3 mm) |
 | ESP32 DevKit V1, 30 pinos, USB-C | 51,5 × 28,3 × 1,6 mm; USB-C passando ~1 mm da borda | **ASSUMIDO** (`esp_l`, `esp_w`, `usbc_out`) |
@@ -265,7 +266,7 @@ Caixa montada: ~153 × 51 × 54 mm. O corpo cabe reto numa mesa de 165 mm (Ender
 ### 8.4 Sistema de coordenadas (no `.scad`)
 - **X**: ao longo da fileira (0 = lado do USB). **Y**: profundidade (0 = frente). **Z**: altura (0 = fundo do corpo).
 - Bay da eletrônica: z 0–27. Piso dos compartimentos: z 27–29. Compartimentos: z 29–49. Tampa: z 49,15–52,15.
-- Vidro do reed: z 33–47. Eixo da dobradiça: y 40,5, z 46.
+- Vidro do reed: deitado em z ≈ 46,8 (centro), x = centro do compartimento ± 7. Eixo da dobradiça: y 40,5, z 46.
 
 ### 8.5 Parâmetros principais (os que mais provavelmente vão precisar de ajuste)
 | Parâmetro | Valor | Efeito |
@@ -273,21 +274,20 @@ Caixa montada: ~153 × 51 × 54 mm. O corpo cabe reto numa mesa de 165 mm (Ender
 | `sk_gap` | 0,15 | folga da saia da tampa no compartimento. Apertado demais → subir para 0,2; folgado → 0,1 |
 | `snap_b`, `snap_g`, `apr_t` | 0,55 / 0,7 / 1,4 | força do clique da frente. Fraco → `snap_b` 0,65; duro demais → 0,45 ou `apr_t` 1,2 |
 | `mouth`, `rod_d`, `rod_gap` | 2,7 / 3,2 / 0,15 | clique da dobradiça. Sai fácil → `mouth` 2,5; não entra / racha → 2,9 |
-| `reed_top` | 2,0 | profundidade do topo do vidro (menor = mais perto do ímã; precisa de espaço para a volta do terminal) |
-| `reed_mouth`, `reed_sy`, `reed_neck` | 2,4 / 2,6 / 1,2 | janela, canal do vidro e canal das pernas |
+| `mag_dx` | 4,5 | posição do ímã ao longo do vidro (0 = centro = ponto morto). **Ajustar no teste**: passar o ímã sobre o reed com o multímetro e anotar onde fecha |
+| `reed_sink`, `reed_cw`, `reed_bend`, `reed_lw` | 0,1 / 2,4 / 2,0 / 1,4 | fundura e largura do canal do vidro, dobra das pernas, canais das pernas |
 | `mag_stack` | 1 | 2 = dois ímãs empilhados (bolsão mais fundo) |
 | `esp_l`, `esp_w`, `esp_in`, `esp_so` | 51,5 / 28,3 / 0,8 / 5 | berço do ESP32 (medir a placa!) |
 | `led_d`, `led_flange` | 5 / 5,9 | LED |
 | `lip_gap`, `bsnap_b`, `bsnap_g` | 0,25 / 0,5 / 0,6 | encaixe da base |
 
 ### 8.6 Como tudo encaixa
-- **Reed**: dobrar o terminal de cima em U a ~2 mm do vidro (nunca rente ao vidro) e trazê-lo para
-  baixo, ao lado do vidro. Encaixar o reed **pela frente** na janelinha do alto da parede frontal: o vidro
-  apoia no degrau e as duas pernas descem pelo canal estreito até a bay. Fica visível por fora (aceito
-  pelo usuário). Uma gota de cola quente ou um pedaço de fita na janela segura o vidro (a janela não
-  aperta o vidro de propósito, para não quebrá-lo).
-- **Ímã**: prensado no bolsão por baixo da tampa, exatamente acima do topo do vidro (acionamento "de
-  topo", ~2,15 mm de distância). Tampa fechada → reed fechado.
+- **Reed**: deitado no canal do topo da parede frontal (com a tampa aberta, cai no lugar). Dobrar as duas
+  pernas para baixo a ~2 mm do vidro (nunca rente) e encaixá-las nos canais abertos na frente; os terminais
+  (~15 mm) não chegam à bay, então emendar um fio fino em cada um (solda + termorretrátil) e levar até a
+  bay. As pernas dobradas seguram o vidro no canal; uma gota de cola quente nos canais da frente firma tudo.
+- **Ímã**: prensado no bolsão por baixo da tampa, a ~0,25 mm do vidro, deslocado 4,5 mm do centro do reed
+  (`mag_dx`). Tampa fechada → reed fechado. Se não acionar, mudar `mag_dx` (testar antes com a mão).
 - **Tampa**: saia em U entra no compartimento (alinha e fecha); a aba da frente desce pela frente do
   corpo e o ressalto clica na canaleta. Para abrir, puxar a aba para cima.
 - **Dobradiça**: colocar a tampa em pé (aberta, ~90°) atrás da caixa e empurrar o eixo para a frente,
@@ -302,8 +302,8 @@ Caixa montada: ~153 × 51 × 54 mm. O corpo cabe reto numa mesa de 165 mm (Ender
 - **Fiação**: os fios dos reeds saem no canto frente/teto da bay, bem acima dos LEDs.
 
 Prévias: `cad/preview/previa_componentes_baixo.png` (caixa de cabeça para baixo, sem a base, com os
-componentes), `previa_componentes_transparente.png`, `previa_corte_reed.png` e `previa_reed_zoom.png`
-(corte no reed: vidro, degrau, ímã, saia e trava), `previa_montada.png`, `previa_aberta.png`,
+componentes), `previa_componentes_transparente.png`, `previa_corte_reed.png`, `previa_reed_zoom.png`
+(corte no ímã: vidro deitado, ímã, saia e trava) e `previa_reed_frente.png` (reed deitado, pernas e fios), `previa_montada.png`, `previa_aberta.png`,
 `previa_interior.png`, `previa_impressao_tampas.png`. Os componentes nas prévias são desenhos aproximados.
 
 ### 8.7 Impressão (sem suportes)
@@ -324,8 +324,8 @@ componentes), `previa_componentes_transparente.png`, `previa_corte_reed.png` e `
 - **A v3 não foi impressa.** Folgas e força dos cliques (8.5) provavelmente pedem um ajuste na peça de teste.
 - **Grampo da dobradiça**: peça fina (arco de 1,25 mm). Em PLA pode rachar se `mouth` ficar apertada;
   PETG é mais tolerante.
-- **Reed + ímã**: ~2,15 mm entre ímã e vidro, mas a distância de acionamento real não foi medida.
-  Se não fechar: `mag_stack = 2` ou `reed_top` menor.
+- **Reed + ímã**: reed deitado com ímã de disco por cima: o acionamento depende da posição ao longo do vidro
+  (o centro é ponto morto). `mag_dx = 4,5` é um chute; medir com o reed e o ímã reais e ajustar.
 - **Medidas do ESP32** (comprimento, largura, quanto o USB-C passa da borda, área livre para os batentes
   entre a fileira de pinos e o módulo) são ASSUMIDAS. Medir antes de imprimir o corpo inteiro.
 - RTC, placa do 595, botão, buzzer, LED e plugue USB: medidas ASSUMIDAS (como na v2).
@@ -348,7 +348,7 @@ openscad -o cad/preview/previa_componentes_baixo.png -D 'part="components"' --im
 ```
 Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `components`, `ghost`,
 `comp_cut`, `cut`, `a_body`, `a_base`, `a_lids`, `a_lids_open`, `chk_lids`, `chk_open`, `chk_base`,
-`chk_esp`, `chk_comp`.
+`chk_esp`, `chk_comp`, `reed_front`.
 
 ---
 
@@ -368,7 +368,7 @@ Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `componen
 | 9 | Caixa impressa em 3D, Ender 2/3 | DECIDIDO |
 | 10 | Tudo por encaixe, sem parafusos nem pino: dobradiça de eixo impresso + grampo em C (v3; a v2 usava pino de filamento) | DECIDIDO (pedido do usuário) |
 | 13 | Compartimento de 20 mm de largura (era 18) para caber a eletrônica presa em berços | PROPOSTO |
-| 14 | Reed em pé na parede frontal, colocado pela frente numa janelinha no alto (v3), ímã deitado na tampa logo acima | DECIDIDO (usuário pediu a janela na frente) |
+| 14 | Reed **deitado** no topo da parede frontal, sob a borda da tampa; pernas por canais abertos na frente; ímã na tampa deslocado do centro (v3) | DECIDIDO (usuário: em pé o reed não funciona) |
 | 11 | Pinagem da seção 5 (corrige a lista anterior que conflitava com I2C) | PROPOSTO |
 | 12 | É lembrete, não dispositivo médico | DECIDIDO (aviso obrigatório) |
 
@@ -388,6 +388,6 @@ Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `componen
 3. ~~App~~ escrito; falta o primeiro build no Actions e teste no celular com a caixa.
 4. Limitações conhecidas: o app só fala com a caixa na mesma rede Wi-Fi (fora de casa só recebe os
    lembretes agendados); HTTP sem criptografia na rede local; Telegram sem validar certificado.
-5. Testes: imprimir as peças de teste de 1 dia da **v3** (dobradiça de encaixe, saia, trava, janela do reed), medir o ESP32 real e ajustar os parâmetros da seção 8.5; reed + ímã na protoboard.
+5. Testes: imprimir as peças de teste de 1 dia da **v3** (dobradiça de encaixe, saia, trava, canal do reed deitado), achar o `mag_dx` com o reed e o ímã reais, medir o ESP32 e ajustar os parâmetros da seção 8.5; reed + ímã na protoboard.
 6. Evoluções: 3 turnos, botão arcade grande, texto gravado, tampa que fecha com trava.
 7. Documentação final para a cadeira: arquitetura, diagrama, BOM com preços atuais, resultados de testes, aviso de que não é dispositivo médico.

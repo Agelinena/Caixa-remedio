@@ -9,8 +9,9 @@
 //     (nao precisa mais do pino de filamento)
 //   - tampa com saia que entra justa no compartimento (sem folga lateral)
 //     e trava frontal com rampa de entrada e degrau de retencao
-//   - reed entra pela FRENTE, numa janelinha no alto da parede frontal,
-//     com degrau que fixa a altura do vidro (bem embaixo do ima)
+//   - reed DEITADO (horizontal, ao longo de x) num canal no topo da parede
+//     frontal, rente a borda da tampa; as pernas descem por canais abertos
+//     na frente ate a bay. Ima na tampa, deslocado para uma ponta do vidro
 //   - ESP32 encostado no USB-C: a ponta da placa entra num rasgo da propria
 //     parede, trilhos laterais justos, batentes e gancho na outra ponta
 //
@@ -23,6 +24,7 @@
 //    "open"       montado com tampas abertas
 //    "components" caixa de cabeca para baixo, sem base, com os componentes
 //    "comp_cut"   corte num compartimento: reed, ima, tampa, LED
+//    "reed_front" frente de um compartimento: reed deitado e canais das pernas
 //    "ghost"      caixa transparente com todos os componentes
 //    "cut"        corte para ver o interior
 //    "a_body" "a_base" "a_lids" "a_lids_open"   pecas na posicao de montagem
@@ -41,7 +43,7 @@ cw   = 20;    // largura interna
 cd   = 30;    // profundidade interna
 ch   = 20;    // altura interna
 wall = 1.6;   // paredes laterais e entre compartimentos
-fw   = 5.4;   // parede frontal (abriga o reed em pe)
+fw   = 5.4;   // parede frontal (reed deitado no topo dela)
 bw   = 1.6;   // parede traseira
 
 // ---------- Bay da eletronica ----------
@@ -50,17 +52,15 @@ ceil_t   = 2;   // piso dos compartimentos = teto da bay
 bay_wall = 2;   // paredes laterais e traseira da bay
 bay_fw   = 3;   // parede frontal da bay (LEDs)
 
-// ---------- Reed (entra pela frente) e ima ----------
+// ---------- Reed (deitado no topo da parede frontal) e ima ----------
 reed_gd   = 2.2;   // diametro do vidro (anuncio)
 reed_gl   = 14;    // comprimento do vidro (anuncio)
-reed_top  = 2.0;   // topo do vidro abaixo do topo do corpo (espaco da volta do terminal)
 reed_y    = 2.9;   // centro do vidro na espessura da parede frontal
-reed_dx   = -0.8;  // vidro deslocado em x; o terminal de cima volta pelo lado +x
-reed_sx   = 3.9;   // largura do canal (vidro + terminal de volta)
-reed_sy   = 2.6;   // fundura do canal na regiao do vidro
-reed_mouth= 2.4;   // janela na face da frente (vidro passa)
-reed_neck = 1.2;   // canal das pernas abaixo do vidro (vidro nao passa: degrau)
-reed_skin = 0.8;   // plastico que fica acima da janela, no topo da parede
+reed_cw   = 2.4;   // largura do canal do vidro
+reed_sink = 0.1;   // topo do vidro abaixo do topo do corpo
+reed_bend = 2.0;   // distancia do vidro ate a dobra da perna (nao dobrar rente ao vidro)
+reed_lw   = 1.4;   // canal das pernas (aberto na frente)
+mag_dx    = 4.5;   // ima deslocado do centro do vidro (centro = ponto morto). AJUSTAR NO TESTE
 mag_d     = 5;     // ima disco
 mag_t     = 1;
 mag_stack = 1;     // 2 = dois imas empilhados
@@ -128,8 +128,8 @@ y_h     = Wd + hr + 0.5;          // eixo da dobradica
 z_h     = H - hr;                 // grampo rente ao topo
 lw      = pitch - 0.4;
 zg      = H - 2.6;                // canaleta da trava da tampa
-z_rtop  = H - reed_top;           // topo do vidro do reed
-z_rbot  = z_rtop - reed_gl;       // degrau onde o vidro apoia
+z_rc    = H - reed_sink - reed_gd/2;   // centro do vidro do reed
+x_leg   = reed_gl/2 + reed_bend;       // posicao das pernas (relativa ao centro)
 buz_z   = bay_h - buz_d/2 - 1.4;
 esp_x0  = bay_wall - esp_in;
 esp_y0  = Wd - bay_wall - 0.15 - esp_w;
@@ -225,19 +225,14 @@ module body_solid(){
 }
 
 module reed_cut(i){
-  xg = xc(i) + reed_dx;                    // centro do vidro
-  x0 = xg - reed_gd/2 - 0.2;               // canal: vidro + terminal de volta em +x
-  // canal do vidro (fundo) e janela na frente
-  translate([x0,reed_y-reed_sy/2,z_rbot]) cube([reed_sx,reed_sy,z_rtop+1.2-z_rbot]);
-  translate([xg-reed_mouth/2,-0.01,z_rbot]) cube([reed_mouth,reed_y+0.01,z_rtop+1.2-z_rbot]);
-  // chanfro da janela (facilita encaixar o vidro)
-  translate([xg,-0.01,z_rbot]) linear_extrude(z_rtop+1.2-z_rbot)
-    polygon([[-reed_mouth/2-0.6,0],[reed_mouth/2+0.6,0],[reed_mouth/2,0.6],[-reed_mouth/2,0.6]]);
-  // canal das pernas, tambem aberto na frente, ate o teto da bay
-  translate([x0,reed_y-reed_neck/2,bay_h-0.01]) cube([reed_sx,reed_neck,z_rbot-bay_h+0.02]);
-  translate([x0,-0.01,bay_h-0.01]) cube([reed_sx,reed_y+0.01,z_rbot-bay_h+0.02]);
-  // saida para dentro da bay
-  translate([x0,reed_y-reed_neck/2,bay_h-5]) cube([reed_sx,bay_fw-reed_y+reed_neck/2+0.1,5.01]);
+  x = xc(i);
+  // canal do vidro, aberto em cima (a tampa cobre)
+  translate([x-reed_gl/2-0.3,reed_y-reed_cw/2,z_rc-reed_gd/2-0.15]) cube([reed_gl+0.6,reed_cw,H-z_rc+reed_gd/2+0.2]);
+  // canal raso das pernas ate a dobra
+  for(s=[-1,1]) translate([s>0?x+reed_gl/2:x-x_leg-reed_lw/2,reed_y-0.6,z_rc-0.6]) cube([x_leg+reed_lw/2-reed_gl/2,1.2,H-z_rc+0.61]);
+  // pernas descem por canais abertos na frente ate a bay
+  for(s=[-1,1]) translate([x+s*x_leg-reed_lw/2,-0.01,bay_h-4]) cube([reed_lw,reed_y+0.6+0.01,H-bay_h+4.01]);
+  for(s=[-1,1]) translate([x+s*x_leg-reed_lw/2,-0.01,bay_h-4]) cube([reed_lw,bay_fw+0.1,4.01]);
 }
 
 module body_cuts(){
@@ -332,8 +327,8 @@ module lid(i=0){
       }
       xcyl(-arm_x-0.5,y_h,z_h,rod_d/2,2*arm_x+1);
     }
-    // bolsao do ima (por baixo, em cima do topo do vidro do reed)
-    translate([reed_dx,reed_y,z_lid0-0.01]) cylinder(d=mag_d+mag_tol,h=mag_t*mag_stack+0.2);
+    // bolsao do ima (por baixo, em cima do vidro, deslocado para uma ponta)
+    translate([mag_dx,reed_y,z_lid0-0.01]) cylinder(d=mag_d+mag_tol,h=mag_t*mag_stack+0.2);
     translate([0,Wd/2,z_lid0+lid_t-0.4]) linear_extrude(0.5)
       text(dias[i%7],size=5,halign="center",valign="center",font="Liberation Sans:style=Bold");
   }
@@ -401,20 +396,19 @@ module c_led(i){
   for(dx=[-1.27,1.27]) color("#bbb") translate([x+dx,bay_fw,led_z]) rotate([-90,0,0]) cylinder(d=0.5,h=8,$fn=8);
 }
 module c_reed(i){
-  xg = xc(i) + reed_dx;
-  color("#bfefff",0.75) translate([xg,reed_y,z_rbot]) cylinder(d=reed_gd,h=reed_gl);
-  color("#555") translate([xg,reed_y,z_rbot+4]) cylinder(d=0.6,h=6,$fn=8);           // laminas
-  // terminal de baixo (desce direto) e terminal de cima (volta pelo lado)
-  color("#bbb"){
-    translate([xg,reed_y,bay_h-6]) cylinder(d=0.5,h=z_rbot-bay_h+6,$fn=8);
-    translate([xg,reed_y,z_rtop]) cylinder(d=0.5,h=1,$fn=8);
-    hull(){ translate([xg,reed_y,z_rtop+1]) sphere(d=0.5,$fn=8); translate([xg+1.4,reed_y,z_rtop+1]) sphere(d=0.5,$fn=8); }
-    translate([xg+1.4,reed_y,bay_h-6]) cylinder(d=0.5,h=z_rtop+1-bay_h+6,$fn=8);
+  x = xc(i);
+  color("#bfefff",0.75) translate([x-reed_gl/2,reed_y,z_rc]) rotate([0,90,0]) cylinder(d=reed_gd,h=reed_gl);
+  color("#555") translate([x-3,reed_y,z_rc]) rotate([0,90,0]) cylinder(d=0.6,h=6,$fn=8);   // laminas
+  color("#bbb") for(s=[-1,1]){
+    translate([s>0?x+reed_gl/2:x-x_leg,reed_y,z_rc]) rotate([0,90,0]) cylinder(d=0.5,h=reed_bend,$fn=8);
+    translate([x+s*x_leg,reed_y,z_rc-15.5+reed_bend]) cylinder(d=0.5,h=15.5-reed_bend,$fn=8);
   }
+  // fio emendado ate a bay
+  color("#d22") for(s=[-1,1]) translate([x+s*x_leg,reed_y,bay_h-6]) cylinder(d=0.8,h=z_rc-15.5+reed_bend-bay_h+6.5,$fn=8);
 }
 module c_magnet(i,a=0){
   translate([xc(i),0,0]) translate([0,y_h,z_h]) rotate([-a,0,0]) translate([0,-y_h,-z_h])
-    color("#7a7a7a") translate([reed_dx,reed_y,z_lid0]) cylinder(d=mag_d,h=mag_t*mag_stack);
+    color("#7a7a7a") translate([mag_dx,reed_y,z_lid0]) cylinder(d=mag_d,h=mag_t*mag_stack);
 }
 module c_buzzer(){ color("#111") translate([L-bay_wall-0.4-6.5,buz_y,buz_z]) rotate([0,90,0]) cylinder(d=buz_d,h=7.5,$fn=48); }
 module c_button(){
@@ -456,11 +450,15 @@ else if(part=="components"){        // de cabeca para baixo, sem base
 else if(part=="ghost"){
   color("#e8e2d0",0.25) body(); color("#d9d2bd",0.25) lids_all(0); components(0); c_usb_cable();
 }
-else if(part=="comp_cut"){          // corte no meio do vidro do reed do 2o dia
+else if(part=="comp_cut"){          // corte no centro do ima do 2o dia
   intersection(){
     union(){ color("#e8e2d0") body(); color("#d9d2bd") translate([xc(1),0,0]) lid(1); components(0); }
-    translate([xc(1)+reed_dx,-20,-5]) cube([40,90,80]);
+    translate([xc(1)+mag_dx,-20,-5]) cube([40,90,80]);
   }
+}
+else if(part=="reed_front"){
+  components(0);
+  color("#e8e2d0",0.35) intersection(){ body(); translate([xc(1)-12,-10,bay_h-6]) cube([24,15.4,H-bay_h+8]); }
 }
 else if(part=="cut") difference(){
   union(){ body(); translate([0,0,-plate_t]) base(); lids_all(0); }
