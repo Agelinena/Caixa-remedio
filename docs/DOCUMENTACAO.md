@@ -140,7 +140,8 @@ reeds e botão foram para pinos que sobraram, incluindo os só-entrada 34, 35 e 
 ### 5.1 Mapeamento sugerido (PROPOSTO)
 Índice do dia 0 = Domingo … 6 = Sábado. `REED_PINS[i]` e `LED_PINS[i]` correspondem ao mesmo dia.
 ```cpp
-const uint8_t REED_PINS[7] = {16, 17, 18, 19, 23, 25, 26};
+const uint8_t LED_PINS[7]  = {13, 14, 27, 16, 17, 18, 19};
+const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 34, 35};
 ```
 
 ### 5.2 Lógica elétrica dos reeds
