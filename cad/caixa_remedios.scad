@@ -10,8 +10,9 @@
 //   - tampa com saia que entra justa no compartimento (sem folga lateral)
 //     e trava frontal com rampa de entrada e degrau de retencao
 //   - reed DEITADO (horizontal, ao longo de x) num canal no topo da parede
-//     frontal, rente a borda da tampa; as pernas descem por canais abertos
-//     na frente ate a bay. Ima na tampa, deslocado para uma ponta do vidro
+//     frontal, rente a borda da tampa; as pernas descem por furos fechados
+//     por dentro da parede ate a bay (nada aparece na frente). Ima na tampa,
+//     deslocado para uma ponta do vidro
 //   - ESP32 encostado no USB-C: a ponta da placa entra num rasgo da propria
 //     parede, trilhos laterais justos, batentes e gancho na outra ponta
 //
@@ -24,7 +25,7 @@
 //    "open"       montado com tampas abertas
 //    "components" caixa de cabeca para baixo, sem base, com os componentes
 //    "comp_cut"   corte num compartimento: reed, ima, tampa, LED
-//    "reed_front" frente de um compartimento: reed deitado e canais das pernas
+//    "reed_front" frente de um compartimento (parede transparente): reed e furos das pernas
 //    "ghost"      caixa transparente com todos os componentes
 //    "cut"        corte para ver o interior
 //    "a_body" "a_base" "a_lids" "a_lids_open"   pecas na posicao de montagem
@@ -59,7 +60,8 @@ reed_y    = 2.9;   // centro do vidro na espessura da parede frontal
 reed_cw   = 2.4;   // largura do canal do vidro
 reed_sink = 0.1;   // topo do vidro abaixo do topo do corpo
 reed_bend = 2.0;   // distancia do vidro ate a dobra da perna (nao dobrar rente ao vidro)
-reed_lw   = 1.4;   // canal das pernas (aberto na frente)
+reed_lw   = 1.4;   // canal raso das pernas no topo, do vidro ate o furo
+reed_hole = 2.2;   // furo por dentro da parede: perna + emenda de fio fino
 mag_dx    = 4.5;   // ima deslocado do centro do vidro (centro = ponto morto). AJUSTAR NO TESTE
 mag_d     = 5;     // ima disco
 mag_t     = 1;
@@ -230,9 +232,8 @@ module reed_cut(i){
   translate([x-reed_gl/2-0.3,reed_y-reed_cw/2,z_rc-reed_gd/2-0.15]) cube([reed_gl+0.6,reed_cw,H-z_rc+reed_gd/2+0.2]);
   // canal raso das pernas ate a dobra
   for(s=[-1,1]) translate([s>0?x+reed_gl/2:x-x_leg-reed_lw/2,reed_y-0.6,z_rc-0.6]) cube([x_leg+reed_lw/2-reed_gl/2,1.2,H-z_rc+0.61]);
-  // pernas descem por canais abertos na frente ate a bay
-  for(s=[-1,1]) translate([x+s*x_leg-reed_lw/2,-0.01,bay_h-4]) cube([reed_lw,reed_y+0.6+0.01,H-bay_h+4.01]);
-  for(s=[-1,1]) translate([x+s*x_leg-reed_lw/2,-0.01,bay_h-4]) cube([reed_lw,bay_fw+0.1,4.01]);
+  // pernas (ja emendadas com fio) descem por furos fechados, por dentro da parede, ate a bay
+  for(s=[-1,1]) translate([x+s*x_leg,reed_y,bay_h-3]) cylinder(d=reed_hole,h=H-bay_h+3.01,$fn=20);
 }
 
 module body_cuts(){
