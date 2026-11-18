@@ -158,8 +158,10 @@ const uint8_t REED_PINS[7] = {16, 17, 18, 19, 23, 25, 26};
 
 ## 6. Firmware (ESCRITO em `firmware/` — não compilado localmente, não testado em hardware)
 
-PlatformIO, placa `esp32dev`, bibliotecas `RTClib`, `ArduinoJson 7`, `WiFiManager`. Um único arquivo
-`firmware/src/main.cpp`; pinos em `firmware/include/pins.h` (cópia da seção 5).
+Pasta de sketch `firmware/CaixaRemedios/`, que abre direto no **Arduino IDE** e é a mesma que o PlatformIO
+(GitHub Actions) compila. Placa `esp32dev`, bibliotecas `RTClib`, `ArduinoJson 7`, `WiFiManager`.
+Código em `firmware/CaixaRemedios/main.cpp`; pinos em `firmware/CaixaRemedios/pins.h` (cópia da seção 5);
+`CaixaRemedios.ino` é só o arquivo que o Arduino IDE exige.
 
 ### 6.1 Máquina de estados (uma dose por dia, MVP)
 | Estado | Entrada | Caixa | Avisos |
@@ -196,6 +198,24 @@ Toque curto = silencia (LED continua) · 3 s = libera parear um celular novo (2 
 
 ### 6.5 API
 Ver `README.md` (tabela de rotas). Porta 8080, mDNS `caixa-remedios.local`, cabeçalho `X-Token`.
+
+### 6.6 Gravar pelo Arduino IDE
+1. **Pacote do ESP32**: Arquivo → Preferências → "URLs adicionais para Gerenciadores de Placas":
+   `https://espressif.github.io/arduino-esp32/package_esp32_index.json`. Depois Ferramentas → Placa →
+   Gerenciador de Placas → instalar **esp32** (Espressif Systems).
+2. **Bibliotecas** (Ferramentas → Gerenciar Bibliotecas): **RTClib** (Adafruit; aceitar as dependências),
+   **ArduinoJson** (Benoit Blanchon, versão 7.x), **WiFiManager** (tzapu).
+3. Abrir `firmware/CaixaRemedios/CaixaRemedios.ino` (o `main.cpp` e o `pins.h` aparecem como abas).
+4. Ferramentas: Placa **ESP32 Dev Module**; Partition Scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB
+   SPIFFS)** (o firmware tem ~1,1 MB no núcleo 2.x e fica maior no 3.x; o esquema padrão só tem 1,25 MB para o programa); Upload Speed 921600 (cair para 115200 se
+   der erro); Porta = COM do ESP32 (driver CH340 ou CP210x).
+5. Carregar (seta →). Se ficar em "Connecting....", segurar **BOOT** até começar a gravar.
+6. Monitor Serial a 115200 para ver as mensagens; depois configurar o Wi-Fi pela rede
+   "CaixaRemedios-XXXX" (seção 3).
+
+Atenção: o Actions compila com o núcleo Arduino-ESP32 **2.0.17** (PlatformIO `espressif32@6.9.0`). O
+Arduino IDE instala o **3.x** por padrão; o código não usa APIs que mudaram (LEDC, timers), mas ainda não
+foi compilado no 3.x. Se der erro, instalar a versão 2.0.17 do pacote esp32 no Gerenciador de Placas.
 
 ---
 

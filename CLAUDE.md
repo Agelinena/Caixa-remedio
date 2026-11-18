@@ -29,7 +29,7 @@ cad/preview/                  prévias (montada, aberta, interior, tampas, compo
 cad/caixa_remedios_v2.scad    v2 (primeira impressão, pino de filamento) — só referência
 cad/caixa_remedios_v1.scad    v1, com parafusos — só referência
 cad/stl_binario.js            converte os STL do OpenSCAD para binário (deno)
-firmware/                     PlatformIO, ESP32 (src/main.cpp, include/pins.h)
+firmware/                     ESP32: sketch CaixaRemedios/ (Arduino IDE) + platformio.ini (Actions)
 app/                          app Flutter (Android); android_extra/ sobrepõe o android/ gerado no Actions
 .github/workflows/            APK do app e .bin do firmware
 ```
