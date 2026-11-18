@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'store.dart';
+import 'tela_conectar.dart';
 import 'util.dart';
 
 class TelaAjustes extends StatelessWidget {
@@ -162,6 +163,13 @@ class TelaAjustes extends StatelessWidget {
               subtitle: Text(s.online && est != null
                   ? 'Endereço ${s.host} · versão ${est['fw']} · Wi-Fi ${est['wifi']} dBm${est['rtc'] == true ? '' : ' · sem RTC'}'
                   : 'Endereço ${s.host} · sem contato'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.wifi),
+              title: const Text('Trocar o Wi-Fi da caixa'),
+              subtitle: const Text('1) Segure o botão da caixa por 10 segundos (um bipe longo) e solte. '
+                  '2) Entre no Wi-Fi "CaixaRemedios-..." (senha remedios). 3) Toque aqui. A agenda não se perde.'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TelaConectar())),
             ),
             ListTile(
               leading: const Icon(Icons.link_off, color: Colors.red),

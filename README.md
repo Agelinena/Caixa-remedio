@@ -50,14 +50,16 @@ Projeto final da cadeira de IoT.
 |---|---|
 | Curto | Silencia o alarme (a luz continua) |
 | 3 segundos | Libera conectar um celular novo (luzes correm por 2 min) |
-| 10 segundos | Apaga o Wi-Fi salvo e reinicia |
+| 10 segundos (bipe longo, soltar) | Apaga só o Wi-Fi e volta à rede de configuração |
+| 20 segundos (dois bipes longos, soltar) | Apaga tudo (Wi-Fi, pareamento, agenda, histórico) |
 
 ## Primeiro uso
 
 1. Grave o firmware (abaixo) e ligue a caixa.
-2. No celular, conecte na rede **CaixaRemedios-XXXX**. Abre uma página: escolha o Wi-Fi da casa.
-3. Instale o app, volte para o Wi-Fi da casa e toque em **Procurar caixa** → **Conectar**.
-4. Na aba **Agenda**, cadastre os remédios e marque os dias e horários. Toque em **Gravar na caixa**.
+2. Instale o app. No celular, conecte na rede **CaixaRemedios-XXXX** (senha `remedios`; a luz do meio pisca).
+3. No app, toque em **Procurar caixa**: escolha o Wi-Fi da casa e digite a senha ali mesmo.
+4. Quando o app pedir, volte o celular para o Wi-Fi da casa e toque em **Concluir**.
+5. Na aba **Agenda**, cadastre os remédios e marque os dias e horários. Toque em **Gravar na caixa**.
 
 ## Firmware
 
@@ -92,7 +94,10 @@ Todas as rotas, menos `info` e `parear`, pedem o cabeçalho `X-Token` recebido n
 | Rota | Função |
 |---|---|
 | `GET /api/info` | identifica a caixa (usado na busca) |
-| `POST /api/parear` | entrega o token (só na primeira vez ou após segurar o botão 3 s) |
+| `POST /api/parear` | entrega o token (primeira vez, caixa sem Wi-Fi, ou após segurar o botão 3 s) |
+| `GET /api/wifi/redes` | redes que a caixa enxerga (só sem Wi-Fi configurado) |
+| `POST /api/wifi` `{"ssid","senha"}` | testa e, se conectar, salva o Wi-Fi da casa |
+| `GET /api/wifi` | andamento: `nada`, `conectando`, `ok` (com `ip`) ou `falhou` (com `erro`) |
 | `GET /api/estado` | dia, estado da dose, tampas, alarme tocando, Wi-Fi |
 | `GET/PUT /api/config` | agenda e ajustes (JSON) |
 | `GET /api/eventos?limite=N` | histórico, mais recente primeiro |

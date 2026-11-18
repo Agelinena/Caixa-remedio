@@ -1,8 +1,11 @@
-// Primeira tela: ligar a caixa no Wi-Fi e conectar o app a ela.
+// Primeira tela: achar a caixa e conectar o app a ela. Se a caixa ainda não tem
+// Wi-Fi (rede "CaixaRemedios-XXXX"), o Wi-Fi da casa é configurado aqui no app.
 import 'package:flutter/material.dart';
 
 import 'api.dart';
+import 'rede.dart';
 import 'store.dart';
+import 'tela_wifi.dart';
 
 class TelaConectar extends StatefulWidget {
   const TelaConectar({super.key});
@@ -26,17 +29,23 @@ class _TelaConectarState extends State<TelaConectar> {
       _msg = null;
       _achadas = [];
     });
+    // Na rede da caixa não há internet: sem isso o Android usaria os dados móveis.
+    await Rede.usarWifi();
     final r = await BoxApi.procurar((p) {
       if (mounted) setState(() => _prog = p);
     });
+    await Rede.liberar();
     if (!mounted) return;
     setState(() {
       _buscando = false;
       _achadas = r;
       if (r.isEmpty) {
-        _msg = 'Nenhuma caixa encontrada. Confira se a caixa está ligada e se o celular está no mesmo Wi-Fi que ela.';
+        _msg = 'Nenhuma caixa encontrada. Caixa nova: entre na rede "CaixaRemedios-..." (senha remedios). '
+            'Caixa já configurada: deixe o celular no mesmo Wi-Fi que ela.';
       }
     });
+    // Uma só caixa e ela está esperando o Wi-Fi: já segue para a configuração.
+    if (r.length == 1 && r.first['modo'] == 'config') await _conectar('${r.first['host']}');
   }
 
   Future<void> _conectar(String host) async {
@@ -45,11 +54,24 @@ class _TelaConectarState extends State<TelaConectar> {
       _msg = null;
     });
     try {
+      await Rede.usarWifi();
       final info = await BoxApi.sondar(host, ms: 3000);
       if (info == null) throw ApiException(0, 'Não encontrei a caixa nesse endereço.');
       final t = await BoxApi.parear(host);
+      if (info['modo'] == 'config') {
+        // Caixa sem Wi-Fi: configura o Wi-Fi da casa por aqui (a tela cuida do resto).
+        await Rede.liberar();
+        if (!mounted) return;
+        setState(() => _conectando = false);
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TelaWifi(host: host, token: t, caixaId: '${info['id'] ?? ''}'),
+        ));
+        return;
+      }
+      await Rede.liberar();
       await Store.I.salvarConexao(host, t, '${info['id'] ?? ''}');
     } on ApiException catch (e) {
+      await Rede.liberar();
       if (!mounted) return;
       setState(() {
         _msg = e.code == 403
@@ -57,6 +79,7 @@ class _TelaConectarState extends State<TelaConectar> {
             : e.msg;
       });
     } catch (_) {
+      await Rede.liberar();
       if (!mounted) return;
       setState(() => _msg = 'Não consegui falar com a caixa.');
     }
@@ -84,10 +107,13 @@ class _TelaConectarState extends State<TelaConectar> {
         children: [
           const Text('Primeira vez?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          _passo('1', 'Ligue a caixa na tomada.'),
-          _passo('2', 'No celular, abra as redes Wi-Fi e entre na rede "CaixaRemedios-...".'),
-          _passo('3', 'Vai abrir uma página. Escolha o Wi-Fi da sua casa e digite a senha.'),
-          _passo('4', 'Volte o celular para o Wi-Fi da casa e toque no botão abaixo.'),
+          _passo('1', 'Ligue a caixa na tomada. Sem Wi-Fi configurado, a luz do meio fica piscando.'),
+          _passo('2', 'Nas configurações do celular, entre na rede Wi-Fi "CaixaRemedios-..." (senha: remedios). '
+              'Se o Android avisar que a rede não tem internet, escolha continuar conectado.'),
+          _passo('3', 'Volte aqui e toque em Procurar caixa. O Wi-Fi da sua casa é escolhido aqui mesmo, no app.'),
+          const SizedBox(height: 8),
+          const Text('A caixa já tem Wi-Fi? Deixe o celular no mesmo Wi-Fi que ela e toque em Procurar caixa.',
+              style: TextStyle(fontSize: 15, color: Colors.black54)),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _buscando || _conectando ? null : _buscar,

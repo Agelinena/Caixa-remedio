@@ -1,7 +1,7 @@
 name: caixa_remedios
 description: App da caixa de remédios inteligente (lembrete, não é dispositivo médico).
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ^3.5.0

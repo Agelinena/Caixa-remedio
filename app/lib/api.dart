@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 
 const int portaApi = 8080;
 
+/// Endereço da caixa na rede dela mesma ("CaixaRemedios-XXXX").
+const String ipRedeCaixa = '192.168.4.1';
+
 class ApiException implements Exception {
   final int code;
   final String msg;
@@ -66,6 +69,12 @@ class BoxApi {
 
   /// Procura caixas em todas as redes locais do celular.
   static Future<List<Map<String, dynamic>>> procurar(void Function(double) progresso) async {
+    // Celular na rede da própria caixa: ela está sempre no mesmo endereço.
+    final daCaixa = await sondar(ipRedeCaixa, ms: 1500);
+    if (daCaixa != null) {
+      progresso(1);
+      return [daCaixa];
+    }
     final prefixos = <String>{};
     try {
       final ifs = await NetworkInterface.list(type: InternetAddressType.IPv4, includeLoopback: false);
@@ -100,6 +109,24 @@ class BoxApi {
     final j = await _chama('POST', host, '/api/parear');
     return '${(j as Map)['token']}';
   }
+
+  // ---- Wi-Fi (só com o celular na rede da caixa)
+
+  /// Redes Wi-Fi que a caixa enxerga, da mais forte para a mais fraca.
+  static Future<List<Map<String, dynamic>>> redesWifi(String host, String token) async {
+    final j = await _chama('GET', host, '/api/wifi/redes', token: token, limite: const Duration(seconds: 20));
+    final l = (j as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    l.sort((a, b) => ((b['rssi'] ?? -100) as int).compareTo((a['rssi'] ?? -100) as int));
+    return l;
+  }
+
+  /// Manda o Wi-Fi da casa. A caixa só salva se conseguir conectar.
+  static Future<void> enviarWifi(String host, String token, String ssid, String senha) async =>
+      _chama('POST', host, '/api/wifi', token: token, corpo: {'ssid': ssid, 'senha': senha});
+
+  /// {estado: nada|conectando|ok|falhou, ssid, erro?, ip?}
+  static Future<Map<String, dynamic>> estadoWifi(String host, String token) async => Map<String, dynamic>.from(
+      await _chama('GET', host, '/api/wifi', token: token, limite: const Duration(seconds: 4)) as Map);
 
   Future<dynamic> _eu(String metodo, String caminho, {Object? corpo, Map<String, String>? q, int seg = 8}) =>
       _chama(metodo, host, caminho, token: token, corpo: corpo, q: q, limite: Duration(seconds: seg));

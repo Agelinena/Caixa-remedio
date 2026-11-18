@@ -93,6 +93,7 @@ class Store extends ChangeNotifier {
   Future<bool> reencontrar() async {
     final r = await BoxApi.procurar((_) {});
     for (final m in r) {
+      if (m['host'] == ipRedeCaixa) continue; // rede de configuração da caixa, não é endereço fixo
       if (caixaId.isEmpty || '${m['id']}' == caixaId) {
         host = '${m['host']}';
         await _p.setString('host', host);

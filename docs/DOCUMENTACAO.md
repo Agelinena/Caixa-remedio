@@ -72,10 +72,12 @@ As prévias 3D reais do modelo estão em `cad/preview/` (ver seção 8.10).
                                                           └─> lembretes agendados no celular
 ```
 
-- **Caixa (firmware)**: decide tudo sozinha. Lê reeds, aciona LEDs e buzzer, lê o botão, guarda agenda
-  (LittleFS) e estado do dia (NVS), usa o RTC para manter a hora **sem internet** e acerta pelo NTP
+- **Caixa (firmware)**: decide tudo sozinha. Lê reeds, aciona LEDs e buzzer, lê o botão, guarda Wi-Fi, pareamento,
+  agenda e estado do dia na NVS (sobrevivem a regravações do firmware; só o botão apaga), usa o RTC para manter a hora **sem internet** e acerta pelo NTP
   quando há Wi-Fi. O histórico fica na própria caixa.
-- **Comunicação**: Wi-Fi configurado pelo portal "CaixaRemedios-XXXX" (WiFiManager). O app acha a caixa
+- **Comunicação**: sem Wi-Fi salvo, a caixa cria a rede "CaixaRemedios-XXXX" (senha `remedios`); o celular
+  entra nela e o **próprio app** lista as redes que a caixa enxerga e envia o Wi-Fi da casa (sem página no
+  navegador; desde a 0.2.0, sem WiFiManager). Depois o app acha a caixa
   varrendo a rede local e fala com uma API HTTP. **Não usa Firebase, MQTT nem BLE** (decisão 7):
   menos peças, nada de nuvem, e a caixa funciona igual sem internet.
 - **App**: Flutter, só Android, APK gerado pelo GitHub Actions.
@@ -166,7 +168,7 @@ const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 34, 35};
 ## 6. Firmware (ESCRITO em `firmware/` — não compilado localmente, não testado em hardware)
 
 Pasta de sketch `firmware/CaixaRemedios/`, que abre direto no **Arduino IDE** e é a mesma que o PlatformIO
-(GitHub Actions) compila. Placa `esp32dev`, bibliotecas `RTClib`, `ArduinoJson 7`, `WiFiManager`.
+(GitHub Actions) compila. Placa `esp32dev`, bibliotecas `RTClib` e `ArduinoJson 7`.
 Código em `firmware/CaixaRemedios/main.cpp`; pinos em `firmware/CaixaRemedios/pins.h` (cópia da seção 5);
 `CaixaRemedios.ino` é só o arquivo que o Arduino IDE exige.
 
@@ -192,12 +194,19 @@ O estado do dia fica na NVS: se faltar luz, a caixa volta no mesmo estado.
 
 ### 6.3 Botão
 Toque curto = silencia (LED continua) · 3 s = libera parear um celular novo (2 min, luzes correndo) ·
-10 s = apaga o Wi-Fi salvo e reinicia.
+10 s (um bipe longo; soltar) = apaga só o Wi-Fi e volta à rede de configuração ·
+20 s (dois bipes longos; soltar) = apaga tudo: Wi-Fi, pareamento, agenda, estado e histórico.
+Sem Wi-Fi configurado, o LED do meio (quarta) pisca devagar.
 
 ### 6.4 Dados na caixa
-- `/config.json` (LittleFS): `nome`, `paciente`, `remedios[{id,nome,dose}]`,
+**NVS** (namespace `caixa`; não é apagada ao regravar o firmware pelo Arduino IDE, pelo PlatformIO nem pelo
+esptool, a menos que se use "Erase All Flash"/"Erase Flash"; também sobrevive à troca do esquema de partição):
+- `wssid`, `wsenha`: Wi-Fi da casa (o ESP32 roda com `WiFi.persistent(false)`; só esta cópia vale).
+- `token`: pareamento com o app. `ymd`, `dia`, `st`, `tom`: estado do dia.
+- `cfg`: agenda e ajustes em JSON (até ~3900 bytes; a 0.1 guardava em `/config.json` e é migrada sozinha): `nome`, `paciente`, `remedios[{id,nome,dose}]`,
   `dias[7]{ativo,hora,remedios[ids]}`, `tolerancia_min`, `antecipa_min`, `repete_min`, `alarme_seg`,
   `som`, `telegram{ativo,token,chat,avisa_tomada}`, `fuso_min` (−180 = Brasília).
+**LittleFS** (só o histórico; se o esquema de partição mudar, o histórico recomeça):
 - `/eventos.jsonl`: uma linha por evento `{ts (UTC), dia, tipo, info}`; gira em ~40 KB (guarda o
   arquivo anterior). Tipos: `ligou`, `alarme`, `atrasada`, `tomada`, `tomada_atrasada`, `perdida`,
   `errada`, `fora_horario`, `abertura`, `reabastecer`.
@@ -211,10 +220,10 @@ Ver `README.md` (tabela de rotas). Porta 8080, mDNS `caixa-remedios.local`, cabe
    `https://espressif.github.io/arduino-esp32/package_esp32_index.json`. Depois Ferramentas → Placa →
    Gerenciador de Placas → instalar **esp32** (Espressif Systems).
 2. **Bibliotecas** (Ferramentas → Gerenciar Bibliotecas): **RTClib** (Adafruit; aceitar as dependências),
-   **ArduinoJson** (Benoit Blanchon, versão 7.x), **WiFiManager** (tzapu).
+   **ArduinoJson** (Benoit Blanchon, versão 7.x). (A WiFiManager não é mais usada.)
 3. Abrir `firmware/CaixaRemedios/CaixaRemedios.ino` (o `main.cpp` e o `pins.h` aparecem como abas).
 4. Ferramentas: Placa **ESP32 Dev Module**; Partition Scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB
-   SPIFFS)** (o firmware tem ~1,1 MB no núcleo 2.x e fica maior no 3.x; o esquema padrão só tem 1,25 MB para o programa); Upload Speed 921600 (cair para 115200 se
+   SPIFFS)** (o firmware tem ~1,1 MB no núcleo 2.x e fica maior no 3.x; o esquema padrão só tem 1,25 MB para o programa); **Erase All Flash Before Sketch Upload: Disabled** (senão apaga Wi-Fi e agenda); Upload Speed 921600 (cair para 115200 se
    der erro); Porta = COM do ESP32 (driver CH340 ou CP210x).
 5. Carregar (seta →). Se ficar em "Connecting....", segurar **BOOT** até começar a gravar.
 6. Monitor Serial a 115200 para ver as mensagens; depois configurar o Wi-Fi pela rede
@@ -229,7 +238,11 @@ foi compilado no 3.x. Se der erro, instalar a versão 2.0.17 do pacote esp32 no 
 ## 7. App (ESCRITO em `app/` — Flutter, Android; não compilado localmente)
 
 Telas (letras maiores, botões grandes, poucas opções por tela):
-1. **Conectar**: passo a passo do Wi-Fi da caixa, busca automática na rede local ou IP digitado.
+1. **Conectar**: com o celular na rede "CaixaRemedios-...", o app acha a caixa em 192.168.4.1, pareia e
+   abre a tela **Wi-Fi da caixa** (redes que a caixa enxerga, senha, acompanhamento da conexão). Depois o
+   celular volta ao Wi-Fi de casa e o app acha a caixa pelo `id`. Caixa já configurada: busca na rede local
+   ou IP digitado. O app prende o tráfego ao Wi-Fi (`bindProcessToNetwork`, canal `caixa/rede` em
+   `MainActivity.kt`), senão o Android mandaria tudo pelos dados móveis numa rede sem internet.
 2. **Hoje**: dia, hora e remédios em letras grandes; estado colorido; botão **Tomei** (com confirmação)
    e **Silenciar alarme**; semana com tampas abertas; avisos de caixa sem hora, sem contato e
    reabastecendo.

@@ -2,13 +2,16 @@
 //  Caixa de remedios inteligente - firmware do ESP32 (MVP, 7 dias)
 //
 //  - Funciona sozinha: agenda, alarme, LEDs e historico nao dependem de rede.
-//  - Wi-Fi: na primeira vez cria a rede "CaixaRemedios-XXXX" com uma pagina
-//    para escolher o Wi-Fi da casa.
+//  - Wi-Fi: sem Wi-Fi salvo, cria a rede "CaixaRemedios-XXXX" (senha
+//    "remedios"); o app entra nela e configura o Wi-Fi da casa pela API.
+//  - Wi-Fi, pareamento, agenda e estado do dia ficam na NVS: sobrevivem a
+//    regravacoes do firmware (so o botao apaga). Historico no LittleFS.
 //  - API HTTP na porta 8080 para o app (cabecalho X-Token).
 //  - Aviso ao cuidador por bot do Telegram (opcional).
 //  - E um lembrete, nao um dispositivo medico.
 //
-//  Botao: toque curto = silencia o alarme | 3 s = parear app | 10 s = apagar Wi-Fi
+//  Botao: toque curto = silencia o alarme | 3 s = parear app
+//         10 s = apagar o Wi-Fi | 20 s = apagar tudo (padrao de fabrica)
 // =====================================================================
 #include <Arduino.h>
 #include <WiFi.h>
@@ -19,7 +22,6 @@
 #include <Wire.h>
 #include <RTClib.h>
 #include <ArduinoJson.h>
-#include <WiFiManager.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <esp_sntp.h>
@@ -28,8 +30,9 @@
 #include <vector>
 #include "pins.h"
 
-#define FW_VERSION "0.1.0"
-static const char* ARQ_CFG    = "/config.json";
+#define FW_VERSION "0.2.0"
+static const char* AP_SENHA   = "remedios";          // senha da rede de configuracao (min. 8)
+static const char* ARQ_CFG    = "/config.json";      // so para migrar da 0.1 (agora a agenda fica na NVS)
 static const char* ARQ_EV     = "/eventos.jsonl";
 static const char* ARQ_EV_OLD = "/eventos.old";
 static const uint16_t PORTA_API = 8080;
@@ -61,9 +64,19 @@ RTC_DS3231 rtc;
 bool rtcPresente = false;
 WebServer server(PORTA_API);
 bool serverOn = false;
-WiFiManager wm;
 Preferences prefs;
 String apNome, chipId, token;
+
+// Wi-Fi: credenciais salvas por nos na NVS (WiFi.persistent(false))
+String wSsid, wSenha;
+bool modoConfig = false;                    // rede "CaixaRemedios-XXXX" no ar
+uint32_t apDesligarEm = 0;
+enum Tentativa : uint8_t { T_NADA, T_CONECTANDO, T_OK, T_FALHOU };
+static const char* TENT_TXT[] = {"nada", "conectando", "ok", "falhou"};
+Tentativa tent = T_NADA;
+String tentSsid, tentSenha, tentErro;
+uint32_t tentDesde = 0;
+bool tentIniciou = false;
 
 bool tampaAberta[N_DIAS];
 bool tampaBruta[N_DIAS];
@@ -128,6 +141,7 @@ void ledsTick() {
   uint8_t b = 0;
   if (antes(reabastecerAte)) b = 0x7F;                               // reabastecendo: todos acesos
   else if (antes(pareandoAte)) b = 1 << ((m / 150) % N_DIAS);        // pareando: luz correndo
+  else if (modoConfig && wSsid.isEmpty()) b = ((m / 700) % 2) ? 0x08 : 0; // sem Wi-Fi: LED do meio piscando
   else if (!relogioOk()) b = ((m / 1000) % 2) ? 0x41 : 0;            // sem hora: pontas piscando
   else {
     if (hoje.st == ALARME) b = 1 << hoje.dia;
@@ -219,15 +233,31 @@ void aplicaCfg(JsonDocument& d) {
   cfg.tgChat    = d["telegram"]["chat"] | "";
 }
 
+// A agenda fica na NVS (chave "cfg"): sobrevive a regravacao do firmware e a troca
+// do esquema de particao. A NVS guarda textos de ate ~4000 bytes.
+static const size_t CFG_MAX = 3900;
+
 String leCfgBruta() {
-  File f = LittleFS.open(ARQ_CFG, "r");
-  if (!f) return String(CFG_PADRAO);
-  String s = f.readString();
-  f.close();
+  String s = prefs.getString("cfg", "");
   return s.length() > 10 ? s : String(CFG_PADRAO);
 }
 
+// Firmware 0.1 guardava a agenda em /config.json: copia para a NVS uma vez.
+void migraCfg() {
+  if (prefs.isKey("cfg")) return;
+  File f = LittleFS.open(ARQ_CFG, "r");
+  if (!f) return;
+  String s = f.readString();
+  f.close();
+  if (s.length() > 10 && s.length() <= CFG_MAX) {
+    prefs.putString("cfg", s);
+    LittleFS.remove(ARQ_CFG);
+    Serial.println("Agenda migrada do LittleFS para a NVS");
+  }
+}
+
 void carregaCfg() {
+  migraCfg();
   JsonDocument d;
   if (deserializeJson(d, leCfgBruta())) deserializeJson(d, CFG_PADRAO);
   aplicaCfg(d);
@@ -384,28 +414,47 @@ void tampasTick() {
   }
 }
 
+// Toca o que estiver na fila do buzzer e reinicia.
+void reiniciaDepoisDoBip() {
+  for (int i = 0; i < 120; i++) { buzzerTick(); delay(10); }
+  digitalWrite(PIN_BUZZER, LOW);
+  ESP.restart();
+}
+
+void apagaWifi() {
+  prefs.remove("wssid");
+  prefs.remove("wsenha");
+  WiFi.disconnect(true, true);                                       // apaga tambem o que o ESP32 guardou
+  evento("wifi_apagado", hoje.dia);
+}
+
+void apagaTudo() {
+  apagaWifi();
+  prefs.clear();                                                     // pareamento, agenda, estado do dia
+  LittleFS.remove(ARQ_EV);
+  LittleFS.remove(ARQ_EV_OLD);
+  LittleFS.remove(ARQ_CFG);
+}
+
 void botaoTick() {
-  static bool apertado = false, fez3 = false;
+  static bool apertado = false, fez3 = false, fez10 = false, fez20 = false;
   static uint32_t desde = 0;
   bool b = digitalRead(PIN_BOTAO) == LOW;
   uint32_t m = millis();
-  if (b && !apertado) { apertado = true; desde = m; fez3 = false; }
+  if (b && !apertado) { apertado = true; desde = m; fez3 = fez10 = fez20 = false; }
   if (b && apertado) {
     if (!fez3 && m - desde >= 3000) {                                // 3 s: parear o app
       fez3 = true;
       pareandoAte = m + 120000;
       bip({80, 80, 80});
     }
-    if (m - desde >= 10000) {                                        // 10 s: apagar o Wi-Fi
-      bip({600});
-      for (int i = 0; i < 80; i++) { buzzerTick(); delay(10); }
-      digitalWrite(PIN_BUZZER, LOW);
-      wm.resetSettings();
-      ESP.restart();
-    }
+    if (!fez10 && m - desde >= 10000) { fez10 = true; bip({600}); }              // soltar agora: apaga o Wi-Fi
+    if (!fez20 && m - desde >= 20000) { fez20 = true; bip({600, 200, 600}); }    // soltar agora: apaga tudo
   }
   if (!b && apertado) {
     apertado = false;
+    if (fez20) { apagaTudo(); bip({100, 100, 100, 100, 600}); reiniciaDepoisDoBip(); }
+    if (fez10) { pareandoAte = 0; apagaWifi(); bip({600}); reiniciaDepoisDoBip(); }
     if (m - desde >= 40 && m - desde < 1500) {                       // toque curto: silenciar
       if (alarmeTocando()) silenciado = true;
       else bip({40});
@@ -440,11 +489,15 @@ void apiInfo() {
   d["fw"] = FW_VERSION;
   d["pareada"] = token.length() > 0;
   d["pareando"] = antes(pareandoAte);
+  d["modo"] = (modoConfig && wSsid.isEmpty()) ? "config" : "normal";  // "config" = esperando o Wi-Fi da casa
+  d["wifi_ssid"] = wSsid;
   mandaJson(d);
 }
 
 void apiParear() {
-  if (token.length() && !antes(pareandoAte)) { mandaErro(403, "segure o botao da caixa por 3 segundos e tente de novo"); return; }
+  // Sem Wi-Fi configurado (rede da caixa, com senha) o app pode parear direto.
+  bool livre = token.isEmpty() || antes(pareandoAte) || (modoConfig && wSsid.isEmpty());
+  if (!livre) { mandaErro(403, "segure o botao da caixa por 3 segundos e tente de novo"); return; }
   if (token.isEmpty()) {
     char b[33];
     snprintf(b, sizeof b, "%08x%08x%08x%08x", esp_random(), esp_random(), esp_random(), esp_random());
@@ -492,10 +545,10 @@ void apiCfgGrava() {
     mandaErro(400, "configuracao invalida");
     return;
   }
-  File f = LittleFS.open(ARQ_CFG, "w");
-  if (!f) { mandaErro(500, "nao consegui gravar"); return; }
-  serializeJson(d, f);
-  f.close();
+  String s;
+  serializeJson(d, s);
+  if (s.length() > CFG_MAX) { mandaErro(413, "agenda grande demais: use nomes de remedio mais curtos"); return; }
+  if (prefs.putString("cfg", s) != s.length()) { mandaErro(500, "nao consegui gravar"); return; }
   aplicaCfg(d);
   reavaliaHoje();
   mandaOk();
@@ -607,6 +660,62 @@ void apiTgChat() {
   mandaJson(o);
 }
 
+// ---------------------------------------------------------------- API do Wi-Fi (configuracao pelo app)
+// Redes que a caixa enxerga (o celular nao precisa de permissao de localizacao).
+void apiWifiRedes() {
+  if (!autorizado()) return;
+  int n = WiFi.scanNetworks(false, false);
+  JsonDocument d;
+  JsonArray a = d.to<JsonArray>();
+  for (int i = 0; i < n; i++) {
+    String s = WiFi.SSID(i);
+    if (s.isEmpty()) continue;
+    bool repetida = false;                    // a mesma rede em varios roteadores: fica a mais forte
+    for (JsonObject o : a) if (s == (const char*)o["ssid"]) {
+      if (WiFi.RSSI(i) > (int)o["rssi"]) o["rssi"] = WiFi.RSSI(i);
+      repetida = true;
+    }
+    if (repetida) continue;
+    JsonObject o = a.add<JsonObject>();
+    o["ssid"] = s;
+    o["rssi"] = WiFi.RSSI(i);
+    o["senha"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+  }
+  WiFi.scanDelete();
+  mandaJson(d);
+}
+
+// Recebe o Wi-Fi da casa e tenta conectar. So salva se conectar.
+void apiWifiGrava() {
+  if (!autorizado()) return;
+  if (!(modoConfig && wSsid.isEmpty())) {
+    mandaErro(409, "a caixa ja tem Wi-Fi: segure o botao por 10 segundos para trocar");
+    return;
+  }
+  JsonDocument d;
+  if (deserializeJson(d, server.arg("plain"))) { mandaErro(400, "json invalido"); return; }
+  String ssid = d["ssid"] | "";
+  String senha = d["senha"] | "";
+  if (ssid.isEmpty() || ssid.length() > 32 || senha.length() > 63) { mandaErro(400, "nome ou senha invalidos"); return; }
+  tentSsid = ssid;
+  tentSenha = senha;
+  tentErro = "";
+  tent = T_CONECTANDO;
+  tentIniciou = false;                        // o wifiTick comeca daqui a 300 ms: a resposta sai antes
+  tentDesde = millis();
+  mandaOk();
+}
+
+void apiWifiEstado() {
+  if (!autorizado()) return;
+  JsonDocument d;
+  d["estado"] = TENT_TXT[tent];
+  d["ssid"] = tent == T_NADA ? wSsid : tentSsid;
+  if (tent == T_FALHOU) d["erro"] = tentErro;
+  if (WiFi.status() == WL_CONNECTED) d["ip"] = WiFi.localIP().toString();
+  mandaJson(d);
+}
+
 void apiInicio() {
   static const char* cab[] = {"X-Token"};
   server.collectHeaders(cab, 1);
@@ -623,6 +732,9 @@ void apiInicio() {
   server.on("/api/hora", HTTP_POST, apiHora);
   server.on("/api/telegram/teste", HTTP_POST, apiTgTeste);
   server.on("/api/telegram/chat", HTTP_POST, apiTgChat);
+  server.on("/api/wifi/redes", HTTP_GET, apiWifiRedes);
+  server.on("/api/wifi", HTTP_POST, apiWifiGrava);
+  server.on("/api/wifi", HTTP_GET, apiWifiEstado);
   server.onNotFound([]() { mandaErro(404, "nao existe"); });
   server.begin();
   serverOn = true;
@@ -637,27 +749,79 @@ void wifiSubiu() {
   configTime(0, 0, "pool.ntp.org", "time.google.com");
 }
 
-void wifiInicio() {
+// Rede da propria caixa, para o app configurar o Wi-Fi. AP+STA: assim ela consegue
+// procurar redes e testar a senha sem derrubar o celular.
+void apLiga() {
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(apNome.c_str(), AP_SENHA);
+  modoConfig = true;
+  Serial.printf("Modo configuracao: rede '%s' (senha %s), app em %s:%u\n", apNome.c_str(), AP_SENHA,
+                WiFi.softAPIP().toString().c_str(), PORTA_API);
+}
+
+void apDesliga() {
+  WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
+  modoConfig = false;
+  apDesligarEm = 0;
+  Serial.println("Rede de configuracao desligada");
+}
+
+void wifiInicio() {
+  WiFi.persistent(false);                     // quem guarda as credenciais e a NVS "caixa"
   WiFi.setAutoReconnect(true);
-  wm.setConfigPortalBlocking(false);
-  wm.setConnectTimeout(20);
-  wm.setTitle("Caixa de remédios");
-  wm.setConfigPortalTimeout(wm.getWiFiIsSaved() ? 180 : 0);
-  wm.autoConnect(apNome.c_str());
+  wSsid = prefs.getString("wssid", "");
+  wSenha = prefs.getString("wsenha", "");
+  if (wSsid.length()) {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(wSsid.c_str(), wSenha.c_str());
+    Serial.printf("Wi-Fi: conectando em '%s'\n", wSsid.c_str());
+  } else {
+    apLiga();
+  }
+  if (!serverOn) apiInicio();                 // a API responde tambem na rede da caixa (192.168.4.1)
 }
 
 void wifiTick() {
   static bool estava = false;
   static uint32_t t = 0;
-  wm.process();
+  uint32_t m = millis();
   bool on = WiFi.status() == WL_CONNECTED;
+
+  if (tent == T_CONECTANDO && !tentIniciou && m - tentDesde >= 300) {
+    tentIniciou = true;
+    tentDesde = m;
+    WiFi.disconnect(false);
+    WiFi.begin(tentSsid.c_str(), tentSenha.c_str());
+    Serial.printf("Wi-Fi: tentando '%s'\n", tentSsid.c_str());
+  }
+  if (tent == T_CONECTANDO && tentIniciou) {
+    if (on) {                                 // senha certa: agora sim salva
+      tent = T_OK;
+      wSsid = tentSsid;
+      wSenha = tentSenha;
+      prefs.putString("wssid", wSsid);
+      prefs.putString("wsenha", wSenha);
+      apDesligarEm = m + 90000;               // da tempo do app ler o IP novo
+      evento("wifi_ok", hoje.dia, wSsid);
+      bip({90, 60, 250});
+    } else if (m - tentDesde > 20000) {
+      wl_status_t s = WiFi.status();
+      tent = T_FALHOU;
+      tentErro = s == WL_NO_SSID_AVAIL ? "a caixa nao encontrou essa rede" : "nao conectou: confira a senha";
+      WiFi.disconnect(false);                 // para de tentar (a rede da caixa continua no ar)
+      Serial.printf("Wi-Fi: falhou (%d)\n", (int)s);
+    }
+  }
+
   if (on && !estava) wifiSubiu();
   estava = on;
-  if (!on && !wm.getConfigPortalActive() && millis() - t > 60000) {  // caiu: tenta de novo
-    t = millis();
-    if (wm.getWiFiIsSaved()) { WiFi.mode(WIFI_STA); WiFi.begin(); }
-    else wm.startConfigPortal(apNome.c_str());
+
+  if (modoConfig && apDesligarEm && (int32_t)(m - apDesligarEm) >= 0) apDesliga();
+
+  if (!on && !modoConfig && wSsid.length() && m - t > 30000) {      // caiu: tenta de novo
+    t = m;
+    WiFi.begin(wSsid.c_str(), wSenha.c_str());
   }
 }
 
