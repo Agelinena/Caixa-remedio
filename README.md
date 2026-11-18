@@ -17,7 +17,7 @@ Projeto final da cadeira de IoT.
 
 ```
  Tampa aberta (reed) ─┐
- Botão ───────────────┤                ┌─> LEDs (74HC595)
+ Botão ───────────────┤                ┌─> LEDs (1 GPIO cada)
  RTC DS3231 ──────────┼──> ESP32 ──────┼─> Buzzer
                       │      │         └─> Telegram do cuidador (internet)
                       │      └── Wi-Fi da casa ── API HTTP :8080 ── App no celular

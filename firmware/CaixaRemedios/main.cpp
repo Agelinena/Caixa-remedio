@@ -115,14 +115,12 @@ void relogioTick() {
   }
 }
 
-// ---------------------------------------------------------------- LEDs (74HC595)
+// ---------------------------------------------------------------- LEDs (um GPIO por dia)
 uint8_t ledAtual = 0xFF;
-void ledsEscreve(uint8_t bits) {
+void ledsEscreve(uint8_t bits) {          // bit i = LED do dia i
   if (bits == ledAtual) return;
   ledAtual = bits;
-  digitalWrite(PIN_595_RCLK, LOW);
-  shiftOut(PIN_595_SER, PIN_595_SRCLK, MSBFIRST, bits);
-  digitalWrite(PIN_595_RCLK, HIGH);
+  for (uint8_t i = 0; i < N_DIAS; i++) digitalWrite(LED_PINS[i], (bits >> i) & 1 ? HIGH : LOW);
 }
 
 void ledsTick() {
@@ -368,7 +366,7 @@ void reavaliaHoje() {
 // ---------------------------------------------------------------- entradas
 void tampasInicio() {
   for (uint8_t i = 0; i < N_DIAS; i++) {
-    pinMode(REED_PINS[i], INPUT_PULLUP);
+    entradaComPullup(REED_PINS[i]);
     tampaAberta[i] = tampaBruta[i] = digitalRead(REED_PINS[i]) == HIGH;
     tampaMudou[i] = millis();
   }
@@ -665,14 +663,12 @@ void wifiTick() {
 
 // ---------------------------------------------------------------- setup / loop
 void setup() {
-  // Limpa o 74HC595 logo de cara (o GPIO 14 pulsa no boot).
-  pinMode(PIN_595_SER, OUTPUT);
-  pinMode(PIN_595_SRCLK, OUTPUT);
-  pinMode(PIN_595_RCLK, OUTPUT);
+  // Apaga os LEDs logo de cara (o GPIO 14 pulsa no boot e pode piscar o LED de segunda).
+  for (uint8_t i = 0; i < N_DIAS; i++) pinMode(LED_PINS[i], OUTPUT);
   ledsEscreve(0);
   pinMode(PIN_BUZZER, OUTPUT);
   digitalWrite(PIN_BUZZER, LOW);
-  pinMode(PIN_BOTAO, INPUT_PULLUP);
+  entradaComPullup(PIN_BOTAO);
 
   Serial.begin(115200);
   Serial.printf("\nCaixa de remedios - firmware %s\n", FW_VERSION);

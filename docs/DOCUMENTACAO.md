@@ -64,7 +64,7 @@ As prévias 3D reais do modelo estão em `cad/preview/` (ver seção 8.10).
 ```
  [Reed x7] ──┐
  [Botão]   ──┤
- [RTC I2C] ──┼──> ESP32 ──> [74HC595] ──> [LED x7]
+ [RTC I2C] ──┼──> ESP32 ──> [LED x7, um GPIO cada]
              │        ├───> [Buzzer via transistor]
              │        └───> Telegram do cuidador (HTTPS, pela internet)
              │
@@ -98,7 +98,8 @@ As prévias 3D reais do modelo estão em `cad/preview/` (ver seção 8.10).
 | Ímã neodímio disco **5 × 1 mm** | 7 (kit de 10) | Aciona o reed | Anúncio visto: kit de 10 por R$ 18,09 (promoção na época). Se o reed falhar, empilhar 2 (5 × 2 mm) |
 | LED | 7 | Indicador do dia | Já possui. **Tamanho não medido** (3 mm ou 5 mm) |
 | Resistor 220–330 Ω | 7 | Limitar corrente dos LEDs | |
-| 74HC595 | 1 | Aciona os 7 LEDs com 3 pinos | Recomendado (libera pinos e facilita a expansão) |
+| ~~74HC595~~ | 0 | — | Não é mais usado: LEDs ligados direto no ESP32 (o usuário não tem o 595; o CD4511 que ele tem é decodificador de 7 segmentos e não acende um LED por vez) |
+| Resistor 10 kΩ | 3 | Pull-up dos pinos 34, 35 e 36 | Esses pinos não têm pull-up interno |
 | Buzzer ativo 5 V | 1 | Alarme sonoro | Acionar via transistor |
 | Transistor NPN (BC547 ou 2N2222) + resistor 1 kΩ | 1 + 1 | Aciona o buzzer | |
 | Botão de pressão pequeno | 1 | Silenciar o alarme | Tátil de placa provavelmente. Para o idoso, um botão arcade grande seria melhor (evolução) |
@@ -127,14 +128,17 @@ Placa: ESP32 DevKit 30 pinos. Evitar para saídas: GPIO 0, 2, 5, 12, 15 (boot/st
 | Função | Pinos do ESP32 | Detalhe |
 |---|---|---|
 | RTC DS3231 (I2C) | SDA = **21**, SCL = **22** | Padrão do ESP32. Não usar esses pinos para mais nada |
-| 74HC595 (LEDs) | dados (SER) = **13**, clock (SRCLK) = **14**, latch (RCLK) = **27** | Saídas Q0..Q6 = LEDs dos dias 0..6. Q7 reserva |
-| Reeds (7) | **16, 17, 18, 19, 23, 25, 26** | `INPUT_PULLUP`; cada reed entre o GPIO e GND |
+| LEDs (7), dias 0..6 | **13, 14, 27, 16, 17, 18, 19** | GPIO → resistor 330 Ω → LED (perna longa) → GND. Nível alto = aceso |
+| Reeds (7), dias 0..6 | **23, 25, 26, 32, 33, 34, 35** | cada reed entre o GPIO e GND. 23–33: pull-up interno. **34 e 35: resistor de 10 kΩ do pino para o 3V3** |
 | Buzzer (via transistor) | **4** | GPIO → 1 kΩ → base do NPN; emissor em GND; buzzer entre 5 V (VIN) e coletor |
-| Botão | **32** | `INPUT_PULLUP`; botão entre o GPIO e GND |
-| Reserva | 33 | |
+| Botão | **36 (VP)** | botão entre o GPIO e GND + **resistor de 10 kΩ do pino para o 3V3** |
+| Reserva | 39 (VN, só entrada) | |
+
+Mudança de 2026-11-18: o 74HC595 saiu (o usuário não tem; o CD4511 não serve). LEDs direto nos GPIOs;
+reeds e botão foram para pinos que sobraram, incluindo os só-entrada 34, 35 e 36. Nenhum pino de boot é usado.
 
 ### 5.1 Mapeamento sugerido (PROPOSTO)
-Índice do dia 0 = Domingo … 6 = Sábado. `REED_PINS[i]` e saída `Qi` do 74HC595 correspondem ao mesmo dia.
+Índice do dia 0 = Domingo … 6 = Sábado. `REED_PINS[i]` e `LED_PINS[i]` correspondem ao mesmo dia.
 ```cpp
 const uint8_t REED_PINS[7] = {16, 17, 18, 19, 23, 25, 26};
 ```
@@ -146,8 +150,10 @@ const uint8_t REED_PINS[7] = {16, 17, 18, 19, 23, 25, 26};
 - Aplicar debounce de 50–100 ms.
 
 ### 5.3 Cuidados conhecidos
-- **LEDs azuis/brancos** (queda de ~3 V) acendem fraco com o 74HC595 em 3,3 V. Vermelho, amarelo e verde funcionam bem. Se forem azuis/brancos, rever a alimentação/ligação.
-- **GPIO 14** emite um pulso PWM breve no boot: pode piscar os LEDs ao ligar. Limpar o 595 no `setup()` (e, se incomodar, usar o pino OE do 595).
+- **LEDs azuis/brancos** (queda de ~3 V) acendem fraco no GPIO de 3,3 V (usar resistor de 100 Ω). Vermelho, amarelo e verde funcionam bem. Se forem azuis/brancos, rever a alimentação/ligação.
+- **GPIO 14** emite um pulso PWM breve no boot: o LED de segunda pode piscar ao ligar (o `setup()` apaga logo em seguida).
+- Corrente: cada GPIO aguenta ~20 mA; com 330 Ω um LED vermelho puxa ~4–5 mA. Normalmente só um LED acende por vez.
+- **GPIO 36/39** podem dar pulsos curtos falsos quando o ADC está ligado; o firmware não usa o ADC e o botão tem debounce.
 - Resistor em série em cada LED (220–330 Ω).
 - Se uma placa ESP32 for de 38 pinos em vez de 30, a posição física dos pinos muda; a numeração GPIO continua válida.
 
@@ -268,7 +274,7 @@ v2 (primeira impressão) em `cad/caixa_remedios_v2.scad`, `cad/stl/v2/`, `cad/pr
 | LED | 5 mm, aro 5,9 mm | **ASSUMIDO** (trocar `led_d`/`led_flange` para 3 / 3,8 se for de 3 mm) |
 | ESP32 DevKit V1, 30 pinos, USB-C | 51,5 × 28,3 × 1,6 mm; USB-C passando ~1 mm da borda | **ASSUMIDO** (`esp_l`, `esp_w`, `usbc_out`) |
 | RTC DS3231 | módulo ZS-042, 38 × 22 × 1,6 mm | **ASSUMIDO** (`rtc_l`, `rtc_w`) |
-| Placa do 74HC595 | placa perfurada cortada em 24 × 28 mm | **ASSUMIDO / a definir** (`aux_l`, `aux_w`) |
+| Placa auxiliar (resistores, transistor; antes era a do 74HC595) | placa perfurada cortada em 24 × 28 mm | **ASSUMIDO / a definir** (`aux_l`, `aux_w`) |
 | Plugue USB-C | furo de 13 × 7,5 mm | **ASSUMIDO** |
 | Botão | chave tátil 6 × 6, altura total 5 mm | **ASSUMIDO** (`btn_h`) |
 | Buzzer | 12 mm de diâmetro | **ASSUMIDO** (`buz_d`) |
@@ -317,7 +323,7 @@ Caixa montada: ~153 × 51 × 54 mm. O corpo cabe reto numa mesa de 165 mm (Ender
 - **ESP32**: pendurado no teto da bay, componentes para cima, pinos para baixo. Inclinar a placa, enfiar
   a ponta do USB no rasgo da parede esquerda (o conector entra no furo do USB-C) e girar até o gancho da
   outra ponta clicar. Os trilhos impedem que ela ande para os lados.
-- **RTC e placa do 74HC595**: berços da v2, ao lado do ESP32.
+- **RTC e placa auxiliar** (resistores dos LEDs, pull-ups, transistor do buzzer): berços da v2, ao lado do ESP32.
 - **LEDs, botão, buzzer, base**: como na v2 (LED por dentro na parede frontal; chave tátil no bolso atrás
   da lingueta; buzzer no clipe em C; base por pressão com rebaixo para moeda).
 - **Fiação**: os fios dos reeds saem no canto frente/teto da bay, bem acima dos LEDs.
@@ -349,7 +355,7 @@ componentes), `previa_componentes_transparente.png`, `previa_corte_reed.png`, `p
   (o centro é ponto morto). `mag_dx = 4,5` é um chute; medir com o reed e o ímã reais e ajustar.
 - **Medidas do ESP32** (comprimento, largura, quanto o USB-C passa da borda, área livre para os batentes
   entre a fileira de pinos e o módulo) são ASSUMIDAS. Medir antes de imprimir o corpo inteiro.
-- RTC, placa do 595, botão, buzzer, LED e plugue USB: medidas ASSUMIDAS (como na v2).
+- RTC, placa auxiliar, botão, buzzer, LED e plugue USB: medidas ASSUMIDAS (como na v2).
 
 ### 8.10 Regenerar as peças e prévias
 ```bash
@@ -385,7 +391,7 @@ Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `componen
 | 6 | Alertas escalonados (LED/buzzer → push → cuidador) | PROPOSTO |
 | 7 | Sem nuvem: app fala com a caixa por HTTP na rede local; cuidador avisado pela caixa via Telegram; sem Firebase/MQTT/BLE | PROPOSTO (implementado; usuário pode trocar) |
 | 15 | App em Flutter, só Android, APK pelo GitHub Actions | DECIDIDO (usuário pediu Actions + celular) |
-| 8 | 74HC595 para os LEDs (3 pinos) | PROPOSTO |
+| 8 | LEDs direto nos GPIOs (sem 74HC595; o CD4511 não serve) | DECIDIDO (2026-11-18) |
 | 9 | Caixa impressa em 3D, Ender 2/3 | DECIDIDO |
 | 10 | Tudo por encaixe, sem parafusos nem pino: dobradiça de eixo impresso + grampo em C (v3; a v2 usava pino de filamento) | DECIDIDO (pedido do usuário) |
 | 13 | Compartimento de 20 mm de largura (era 18) para caber a eletrônica presa em berços | PROPOSTO |
@@ -398,14 +404,14 @@ Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `componen
 ## 10. Pendências (para o usuário ou para o Claude Code)
 
 **Perguntas abertas ao usuário**
-- Tamanho do LED (3 mm ou 5 mm); cor dos LEDs (azul/branco muda a ligação do 595).
+- Tamanho do LED (3 mm ou 5 mm); cor dos LEDs (azul/branco pede resistor menor).
 - Ender 2 ou Ender 3 (afeta se dá para aumentar a caixa).
 - Modelo exato do botão (tátil de placa ou de painel); se for tátil, desenhar suporte/capuz.
 - Já comprou os itens? Placa ESP32 realmente de 30 pinos?
 
 **Tarefas de desenvolvimento**
 1. ~~Firmware do MVP~~ escrito; falta compilar no Actions e testar na protoboard.
-2. Diagrama elétrico (resistores, transistor do buzzer, 74HC595, RTC, reeds, botão).
+2. Diagrama elétrico (resistores, pull-ups de 10 kΩ, transistor do buzzer, RTC, reeds, LEDs, botão).
 3. ~~App~~ escrito; falta o primeiro build no Actions e teste no celular com a caixa.
 4. Limitações conhecidas: o app só fala com a caixa na mesma rede Wi-Fi (fora de casa só recebe os
    lembretes agendados); HTTP sem criptografia na rede local; Telegram sem validar certificado.

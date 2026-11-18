@@ -47,7 +47,7 @@ openscad -o cad/stl/teste_base_1dia.stl  -D n=1 -D 'part="base"'  cad/caixa_reme
 ```
 
 ## Próximas tarefas sugeridas (ordem)
-1. Firmware do MVP (máquina de estados, leitura dos reeds, LEDs via 74HC595, RTC, buzzer, botão).
+1. Firmware do MVP (máquina de estados, leitura dos reeds, LEDs direto nos GPIOs, RTC, buzzer, botão).
 2. Diagrama de ligações (esquema elétrico) a partir da pinagem.
 3. Persistência da agenda (NVS) e sincronização com Firebase.
 4. App (agenda, histórico, notificações, cuidador).
