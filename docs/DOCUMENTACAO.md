@@ -1,6 +1,6 @@
 # Documentação do projeto: Caixa de remédios inteligente (IoT)
 
-Versão do documento: 1.1 · Estado: **concepção + modelo 3D v2 (só encaixes) gerado, nada testado em hardware**
+Versão do documento: 1.2 · Estado: **modelo 3D v2 impresso; v3 (dobradiça de encaixe, reed pela frente) gerada; eletrônica não testada em hardware**
 
 Legenda usada ao longo do texto:
 - **DECIDIDO**: o usuário aprovou ou escolheu.
@@ -221,121 +221,114 @@ Se o endereço da caixa mudar (DHCP), o app procura de novo pelo identificador d
 
 ---
 
-## 8. Modelo 3D (v2, só encaixes — GERADO, não impresso ainda)
+## 8. Modelo 3D (v3, tudo por encaixe — GERADO; a v2 foi impressa, a v3 ainda não)
 
 Arquivo-fonte: `cad/caixa_remedios.scad` (OpenSCAD 2021.01, paramétrico). Os STLs em `cad/stl/` são
-gerados dele. A versão anterior (com parafusos) ficou em `cad/caixa_remedios_v1.scad`, `cad/stl/v1/` e
-`cad/preview/v1/`.
+gerados dele e convertidos para STL binário com `cad/stl_binario.js`. Versões anteriores ficam só como
+referência: v1 (parafusos) em `cad/caixa_remedios_v1.scad`, `cad/stl/v1/`, `cad/preview/v1/`;
+v2 (primeira impressão) em `cad/caixa_remedios_v2.scad`, `cad/stl/v2/`, `cad/preview/v2/`.
 
-### 8.1 O que mudou da v1 para a v2
-| Tema | v1 | v2 |
+### 8.1 O que mudou da v2 para a v3 (pedido do usuário depois de imprimir a v2, 2026-11-18)
+| Tema | v2 | v3 |
 |---|---|---|
-| Fechamento da base | 4 parafusos M3 | encaixe de pressão: 3 ressaltos por lado na base, canaleta nas paredes |
-| Reed | deitado, em canaleta aberta, paredes de 0,8 mm | **em pé** dentro da parede frontal (5,4 mm), rasgo fechado por cima, paredes ≥ 1,15 mm |
-| Ímã | em pé num bloco saliente da tampa, ao lado do reed | **deitado** num bolsão por baixo da tampa, alinhado com a ponta de cima do reed |
-| Tampa | topo com bloco saliente, sem trava | topo liso, dia da semana gravado, trava de clique na frente, batente de abertura (~100°) |
-| Dobradiça | orelhas acima do topo | orelhas rentes ao topo, sobre uma prateleira traseira (que também é o batente) |
-| Eletrônica | ESP32 solto sobre um trilho na base | berços de encaixe no teto da bay (ESP32, RTC, placa do 74HC595); a base é só tampa |
-| Botão | furo de 7 mm | lingueta flexível impressa na parede direita + bolso para chave tátil 6×6 |
-| Buzzer | furos na parede | clipe em C + 5 furos de som |
-| LED | furo simples | furo + "viseira" externa de 3,5 mm (o LED não fica para fora) |
-| Impressão | corpo em pé, ponte de 31,6 mm | corpo de cabeça para baixo, **sem suportes** |
-| Compartimento | 18 mm de largura | **20 mm** (necessário para caber a eletrônica presa) |
+| Dobradiça | pino de filamento de 152 mm atravessando orelhas | **encaixe**: cada tampa tem um eixo impresso (Ø 3,2) entre dois braços; o corpo tem um grampo em C por compartimento, boca para trás. A tampa clica e sai sem ferramenta |
+| Firmeza da tampa | só a trava frontal; folga lateral livre | **saia em U** (frente + laterais, 2,4 mm) que entra no compartimento com 0,15 mm de folga por lado: a tampa não balança e fecha o compartimento |
+| Trava frontal | ressalto simétrico de 0,5 mm | ressalto de 0,55 mm com **rampa longa para fechar e degrau curto para segurar**; canaleta de 0,7 mm no corpo; aba de 1,4 mm |
+| Reed | entra por baixo, rasgo fechado por cima (não dava para colocar) | entra **pela frente**, por uma janelinha no alto da parede frontal; um degrau segura o vidro com o topo a 2 mm do topo do corpo (≈2,15 mm do ímã); as pernas descem por um canal estreito, também aberto na frente, até a bay |
+| ESP32 | 2,1 mm longe da parede, garras + 4 apoios de canto, folga grande | a ponta do lado do USB entra 0,8 mm num **rasgo da própria parede** (conector USB-C fica dentro do furo); trilho frontal no comprimento todo, a parede traseira é o outro trilho (0,15 mm de folga); 2 batentes no teto; gancho flexível na ponta da antena |
+| Furo do USB-C | retangular | cantos arredondados (13 × 7,5) |
+| Prévias | só a caixa | também **componentes montados** (vista de baixo, transparente e corte do reed) |
 
 ### 8.2 Medidas dos componentes usadas (e origem)
 | Componente | Valor usado | Origem |
 |---|---|---|
-| Reed (vidro) | 14 × 2,2 mm; rasgo de 3,9 × 2,7 mm (vidro + fio de volta) | Anúncio enviado pelo usuário |
+| Reed (vidro) | 14 × 2,2 mm; canal de 3,9 × 2,6 mm (vidro + terminal de volta), janela de 2,4 mm, canal das pernas de 1,2 mm | Anúncio enviado pelo usuário |
 | Ímã | 5 × 1 mm; bolsão de 5,15 × 1,2 mm | Anúncio enviado pelo usuário |
 | LED | 5 mm, aro 5,9 mm | **ASSUMIDO** (trocar `led_d`/`led_flange` para 3 / 3,8 se for de 3 mm) |
-| ESP32 DevKit 30 pinos | 51,5 × 28,3 × 1,6 mm | **ASSUMIDO** (`esp_l`, `esp_w`) |
+| ESP32 DevKit V1, 30 pinos, USB-C | 51,5 × 28,3 × 1,6 mm; USB-C passando ~1 mm da borda | **ASSUMIDO** (`esp_l`, `esp_w`, `usbc_out`) |
 | RTC DS3231 | módulo ZS-042, 38 × 22 × 1,6 mm | **ASSUMIDO** (`rtc_l`, `rtc_w`) |
 | Placa do 74HC595 | placa perfurada cortada em 24 × 28 mm | **ASSUMIDO / a definir** (`aux_l`, `aux_w`) |
 | Plugue USB-C | furo de 13 × 7,5 mm | **ASSUMIDO** |
 | Botão | chave tátil 6 × 6, altura total 5 mm | **ASSUMIDO** (`btn_h`) |
 | Buzzer | 12 mm de diâmetro | **ASSUMIDO** (`buz_d`) |
-| Pino da dobradiça | filamento 1,75 mm (furo 2,1 no corpo, 2,4 na tampa) | Decisão de projeto |
 
 ### 8.3 Peças geradas
 | Arquivo | Conteúdo | Tamanho na mesa (mm) |
 |---|---|---|
 | `caixa_corpo.stl` | Corpo, já virado (topo na mesa) | 153,2 × 47,5 × 49,0 |
 | `caixa_base.stl` | Tampa de baixo com lábio e ressaltos | 152,8 × 37,0 × 6,7 |
-| `caixa_tampas_x7.stl` | 7 tampas (DOM…SAB), topo na mesa, em 2 fileiras | 94,6 × 101,0 × 9,1 |
+| `caixa_tampas_x7.stl` | 7 tampas (DOM…SAB), topo na mesa, em 2 fileiras | 94,6 × 101,0 × 9,2 |
 | `teste_corpo_1dia.stl`, `teste_tampa_1dia.stl`, `teste_base_1dia.stl` | Mesmo projeto com 1 dia, sem eletrônica | corpo 23,2 × 47,5 × 49,0 |
 
-Caixa montada: ~153 × 49 × 54 mm (com a base e as tampas). O corpo cabe reto numa mesa de 165 mm
-(Ender 2 Pro) ou 220 mm (Ender 3). Numa Ender 2 original (150 mm) só cabe na diagonal.
+Caixa montada: ~153 × 51 × 54 mm. O corpo cabe reto numa mesa de 165 mm (Ender 2 Pro) ou 220 mm (Ender 3).
 
 ### 8.4 Sistema de coordenadas (no `.scad`)
 - **X**: ao longo da fileira (0 = lado do USB). **Y**: profundidade (0 = frente). **Z**: altura (0 = fundo do corpo).
 - Bay da eletrônica: z 0–27. Piso dos compartimentos: z 27–29. Compartimentos: z 29–49. Tampa: z 49,15–52,15.
+- Vidro do reed: z 33–47. Eixo da dobradiça: y 40,5, z 46.
 
-### 8.5 Parâmetros principais
-| Parâmetro | Valor | Significado |
+### 8.5 Parâmetros principais (os que mais provavelmente vão precisar de ajuste)
+| Parâmetro | Valor | Efeito |
 |---|---|---|
-| `n` | 7 | dias (`n=1` gera a peça de teste, sem eletrônica) |
-| `cw, cd, ch` | 20, 30, 20 | interior de cada compartimento |
-| `wall, fw, bw` | 1,6 / 5,4 / 1,6 | paredes laterais / frontal (reed) / traseira |
-| `bay_h, ceil_t, bay_wall, bay_fw` | 27 / 2 / 2 / 3 | bay da eletrônica |
-| `reed_y, reed_sx, reed_sy, reed_cap` | 2,9 / 3,9 / 2,7 / 0,6 | rasgo do reed |
-| `mag_d, mag_t, mag_stack, mag_tol` | 5 / 1 / 1 / 0,15 | ímã (`mag_stack=2` empilha dois) |
-| `led_d, led_flange, led_z, led_bezel` | 5 / 5,9 / 12 / 3,5 | LED e viseira |
-| `lid_t, lid_gap, tab, hr, ear_w` | 3 / 0,15 / 5 / 3 / 2,4 | tampa e dobradiça |
-| `plate_t, lip_h, lip_gap, snap_b, snap_g` | 2 / 3,5 / 0,25 / 0,5 / 0,6 | base e encaixe |
-| `esp_*`, `rtc_*`, `aux_*` | ver 8.2 | berços (`*_so` = distância da placa ao teto) |
-| `btn_h, btn_y, btn_z, pad_*` | 5 / 9,5 / 8 | botão e lingueta |
+| `sk_gap` | 0,15 | folga da saia da tampa no compartimento. Apertado demais → subir para 0,2; folgado → 0,1 |
+| `snap_b`, `snap_g`, `apr_t` | 0,55 / 0,7 / 1,4 | força do clique da frente. Fraco → `snap_b` 0,65; duro demais → 0,45 ou `apr_t` 1,2 |
+| `mouth`, `rod_d`, `rod_gap` | 2,7 / 3,2 / 0,15 | clique da dobradiça. Sai fácil → `mouth` 2,5; não entra / racha → 2,9 |
+| `reed_top` | 2,0 | profundidade do topo do vidro (menor = mais perto do ímã; precisa de espaço para a volta do terminal) |
+| `reed_mouth`, `reed_sy`, `reed_neck` | 2,4 / 2,6 / 1,2 | janela, canal do vidro e canal das pernas |
+| `mag_stack` | 1 | 2 = dois ímãs empilhados (bolsão mais fundo) |
+| `esp_l`, `esp_w`, `esp_in`, `esp_so` | 51,5 / 28,3 / 0,8 / 5 | berço do ESP32 (medir a placa!) |
+| `led_d`, `led_flange` | 5 / 5,9 | LED |
+| `lip_gap`, `bsnap_b`, `bsnap_g` | 0,25 / 0,5 / 0,6 | encaixe da base |
 
 ### 8.6 Como tudo encaixa
-- **Reed**: entra por baixo (pela bay) num rasgo vertical dentro da parede frontal, fechado em cima por
-  0,6 mm de plástico. O terminal de baixo desce direto para a bay; o de cima é cortado a ~2 mm, recebe
-  um fio fino soldado e o fio volta por dentro do mesmo rasgo. Uma gota de cola quente na saída segura.
-  Nenhum terminal precisa ser dobrado rente ao vidro.
-- **Ímã**: prensado no bolsão por baixo da tampa, deitado, exatamente acima da ponta do reed
-  (acionamento "de topo", ~2 mm de distância). Com a tampa fechada o reed fecha; abrindo, ele abre.
-- **Tampa**: aba frontal com um ressalto de 0,5 mm que clica numa canaleta ao longo da frente do corpo.
-  A parte de trás da tampa encosta na prateleira da dobradiça e segura a tampa aberta em ~100°.
-- **Dobradiça**: um pedaço de filamento de ~152 mm entra pela esquerda e atravessa as 8 orelhas e as 7
-  tampas; o furo é cego na última orelha (o pino não sai pelo outro lado).
-- **ESP32**: pendurado no teto da bay, componentes para cima, **pinos para baixo** (virados para a
-  abertura). Entra inclinado por baixo das duas garras do lado do USB e clica no gancho do outro lado.
-  Com a caixa de cabeça para baixo os pinos ficam à mão para jumpers Dupont ou solda.
-- **RTC e placa do 74HC595**: mesmo tipo de berço, ao lado do ESP32. Sobram ~11 mm entre o RTC e a
-  placa do 595 para o conector do RTC.
-- **LEDs**: entram por dentro, na parede frontal da bay; o aro assenta num rebaixo. Ficam na pressão.
-- **Botão**: a chave tátil entra por baixo num bolso atrás da lingueta flexível da parede direita
-  (pernas para os lados). Um pilar na base impede que ela desça.
-- **Buzzer**: clica num clipe em C no teto, encostado nos 5 furos de som da parede direita.
-- **Base**: lábio de 3,5 mm que entra na bay, com 3 ressaltos por lado. Para abrir, há um rebaixo para
-  moeda/unha no meio do lado esquerdo.
-- **Fiação**: os fios dos reeds saem no canto frente/teto da bay, bem acima dos LEDs. Sugestão: um fio
-  de GND comum correndo pela frente (reeds e LEDs) e os sinais indo para trás, até o ESP32 e o 595.
+- **Reed**: dobrar o terminal de cima em U a ~2 mm do vidro (nunca rente ao vidro) e trazê-lo para
+  baixo, ao lado do vidro. Encaixar o reed **pela frente** na janelinha do alto da parede frontal: o vidro
+  apoia no degrau e as duas pernas descem pelo canal estreito até a bay. Fica visível por fora (aceito
+  pelo usuário). Uma gota de cola quente ou um pedaço de fita na janela segura o vidro (a janela não
+  aperta o vidro de propósito, para não quebrá-lo).
+- **Ímã**: prensado no bolsão por baixo da tampa, exatamente acima do topo do vidro (acionamento "de
+  topo", ~2,15 mm de distância). Tampa fechada → reed fechado.
+- **Tampa**: saia em U entra no compartimento (alinha e fecha); a aba da frente desce pela frente do
+  corpo e o ressalto clica na canaleta. Para abrir, puxar a aba para cima.
+- **Dobradiça**: colocar a tampa em pé (aberta, ~90°) atrás da caixa e empurrar o eixo para a frente,
+  para dentro da boca do grampo, até clicar. O arco de cima do grampo flexiona. Para tirar, puxar a tampa
+  aberta para trás. A tampa aberta para em ~95–100° encostando na prateleira traseira.
+- **ESP32**: pendurado no teto da bay, componentes para cima, pinos para baixo. Inclinar a placa, enfiar
+  a ponta do USB no rasgo da parede esquerda (o conector entra no furo do USB-C) e girar até o gancho da
+  outra ponta clicar. Os trilhos impedem que ela ande para os lados.
+- **RTC e placa do 74HC595**: berços da v2, ao lado do ESP32.
+- **LEDs, botão, buzzer, base**: como na v2 (LED por dentro na parede frontal; chave tátil no bolso atrás
+  da lingueta; buzzer no clipe em C; base por pressão com rebaixo para moeda).
+- **Fiação**: os fios dos reeds saem no canto frente/teto da bay, bem acima dos LEDs.
+
+Prévias: `cad/preview/previa_componentes_baixo.png` (caixa de cabeça para baixo, sem a base, com os
+componentes), `previa_componentes_transparente.png`, `previa_corte_reed.png` e `previa_reed_zoom.png`
+(corte no reed: vidro, degrau, ímã, saia e trava), `previa_montada.png`, `previa_aberta.png`,
+`previa_interior.png`, `previa_impressao_tampas.png`. Os componentes nas prévias são desenhos aproximados.
 
 ### 8.7 Impressão (sem suportes)
-- **Corpo**: como está no STL, de cabeça para baixo. A bay fica aberta para cima e as únicas pontes são
-  os pisos dos compartimentos (20 mm de vão).
-- **Tampas**: topo na mesa (o texto sai na primeira camada). **Base**: placa na mesa.
-- PLA claro, camada 0,2 mm, 3 paredes, bico 0,4.
-- **Imprimir primeiro as 3 peças de teste de 1 dia** para validar reed, ímã, LED, clique da tampa,
-  dobradiça e encaixe da base; ajustar os parâmetros; só depois imprimir a caixa inteira.
+- **Corpo**: como está no STL, de cabeça para baixo. As pontes são os pisos dos compartimentos (20 mm).
+- **Tampas**: topo na mesa; saia, braços e eixo ficam para cima. O eixo é uma ponte curta de 9,6 mm.
+- **Base**: placa na mesa.
+- PLA ou PETG, camada 0,2 mm (0,12–0,16 mm melhora os cliques), 3 paredes, bico 0,4. Desligar
+  "compensação de furos/expansão horizontal" ou ajustar `sk_gap`/`rod_gap` depois do teste.
+- **Imprimir primeiro as 3 peças de teste de 1 dia** (corpo, tampa, base) e ajustar os parâmetros da 8.5.
 
 ### 8.8 Verificações feitas (no computador)
 - Todos os STLs: sólido válido ("Simple: yes"); corpo e base em peça única; 7 tampas separadas.
 - Interseção corpo × tampas fechadas = vazia. Corpo × base = vazia.
-- Tampa abrindo: sem colisão a 45° e 97°; colide a 104° (batente perto de 100°, como previsto).
+- Tampa abrindo: sem colisão a 45° e 90°; encosta na prateleira a 100° (batente).
+- ESP32 desenhado × corpo: só o contato previsto dos batentes na face de cima da placa.
 
 ### 8.9 O que **não** foi verificado (ASSUMIDO / risco)
-- **Nada foi impresso nem testado fisicamente.** Folgas (0,15–0,4 mm) e a força dos cliques
-  (`snap_b`, `snap_g`) provavelmente vão precisar de ajuste na peça de teste.
-- **Reed + ímã**: a posição "de topo" é teoricamente bem mais forte que a da v1, mas não foi medida.
-  Testar na protoboard e na peça de teste. Se não fechar: `mag_stack = 2`. Aberturas de poucos
-  milímetros podem não ser detectadas (o reed só abre com a tampa bem levantada).
-- **Medidas das placas, do botão, do buzzer, do LED e do plugue USB** são ASSUMIDAS. Medir as peças
-  reais antes de imprimir o corpo inteiro; os berços dependem disso.
-- **Garras dos berços e lingueta do botão** são peças finas de PLA: podem quebrar se forçadas.
-- **Jumper Dupont só no ESP32**: a altura da bay (27 mm) foi pensada para isso. RTC e placa do 595
-  ficam melhor com fios soldados.
-- **Pino da dobradiça** fica só na pressão; se soltar, aquecer e amassar a ponta.
+- **A v3 não foi impressa.** Folgas e força dos cliques (8.5) provavelmente pedem um ajuste na peça de teste.
+- **Grampo da dobradiça**: peça fina (arco de 1,25 mm). Em PLA pode rachar se `mouth` ficar apertada;
+  PETG é mais tolerante.
+- **Reed + ímã**: ~2,15 mm entre ímã e vidro, mas a distância de acionamento real não foi medida.
+  Se não fechar: `mag_stack = 2` ou `reed_top` menor.
+- **Medidas do ESP32** (comprimento, largura, quanto o USB-C passa da borda, área livre para os batentes
+  entre a fileira de pinos e o módulo) são ASSUMIDAS. Medir antes de imprimir o corpo inteiro.
+- RTC, placa do 595, botão, buzzer, LED e plugue USB: medidas ASSUMIDAS (como na v2).
 
 ### 8.10 Regenerar as peças e prévias
 ```bash
@@ -345,15 +338,17 @@ openscad -o cad/stl/caixa_tampas_x7.stl  -D 'part="lids"' cad/caixa_remedios.sca
 openscad -o cad/stl/teste_corpo_1dia.stl -D n=1 -D 'part="body"' cad/caixa_remedios.scad
 openscad -o cad/stl/teste_tampa_1dia.stl -D n=1 -D 'part="lid1"' cad/caixa_remedios.scad
 openscad -o cad/stl/teste_base_1dia.stl  -D n=1 -D 'part="base"' cad/caixa_remedios.scad
+deno run --allow-read --allow-write cad/stl_binario.js cad/stl/*.stl
 # Conferência de colisão: o OpenSCAD deve responder "Current top level object is empty"
-openscad -o /tmp/c.stl -D 'part="chk_lids"' cad/caixa_remedios.scad
-openscad -o /tmp/c.stl -D 'part="chk_base"' cad/caixa_remedios.scad
-openscad -o /tmp/c.stl -D 'part="chk_open"' -D ang=97 cad/caixa_remedios.scad
+openscad -o c.stl -D 'part="chk_lids"' cad/caixa_remedios.scad
+openscad -o c.stl -D 'part="chk_base"' cad/caixa_remedios.scad
+openscad -o c.stl -D 'part="chk_open"' -D ang=90 cad/caixa_remedios.scad
+# Prévia dos componentes (vista de baixo)
+openscad -o cad/preview/previa_componentes_baixo.png -D 'part="components"' --imgsize=1800,1000 --viewall --autocenter --colorscheme=Tomorrow --camera=0,0,0,12,0,8,0 cad/caixa_remedios.scad
 ```
-Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `cut`, `a_body`, `a_base`,
-`a_lids`, `a_lids_open`, `chk_lids`, `chk_open`, `chk_base`.
-Prévias em `cad/preview/`: `previa_montada.png`, `previa_aberta.png`, `previa_interior.png`,
-`previa_impressao_tampas.png`.
+Valores de `part`: `body`, `base`, `lids`, `lid1`, `assembly`, `open`, `components`, `ghost`,
+`comp_cut`, `cut`, `a_body`, `a_base`, `a_lids`, `a_lids_open`, `chk_lids`, `chk_open`, `chk_base`,
+`chk_esp`, `chk_comp`.
 
 ---
 
@@ -371,9 +366,9 @@ Prévias em `cad/preview/`: `previa_montada.png`, `previa_aberta.png`, `previa_i
 | 15 | App em Flutter, só Android, APK pelo GitHub Actions | DECIDIDO (usuário pediu Actions + celular) |
 | 8 | 74HC595 para os LEDs (3 pinos) | PROPOSTO |
 | 9 | Caixa impressa em 3D, Ender 2/3 | DECIDIDO |
-| 10 | Dobradiça com pino de filamento 1,75 mm; base e eletrônica presas só por encaixe, sem parafusos | DECIDIDO (pedido do usuário) |
+| 10 | Tudo por encaixe, sem parafusos nem pino: dobradiça de eixo impresso + grampo em C (v3; a v2 usava pino de filamento) | DECIDIDO (pedido do usuário) |
 | 13 | Compartimento de 20 mm de largura (era 18) para caber a eletrônica presa em berços | PROPOSTO |
-| 14 | Reed em pé na parede frontal, ímã deitado na tampa acima dele | PROPOSTO (testar) |
+| 14 | Reed em pé na parede frontal, colocado pela frente numa janelinha no alto (v3), ímã deitado na tampa logo acima | DECIDIDO (usuário pediu a janela na frente) |
 | 11 | Pinagem da seção 5 (corrige a lista anterior que conflitava com I2C) | PROPOSTO |
 | 12 | É lembrete, não dispositivo médico | DECIDIDO (aviso obrigatório) |
 
@@ -393,6 +388,6 @@ Prévias em `cad/preview/`: `previa_montada.png`, `previa_aberta.png`, `previa_i
 3. ~~App~~ escrito; falta o primeiro build no Actions e teste no celular com a caixa.
 4. Limitações conhecidas: o app só fala com a caixa na mesma rede Wi-Fi (fora de casa só recebe os
    lembretes agendados); HTTP sem criptografia na rede local; Telegram sem validar certificado.
-5. Testes: reed + ímã na protoboard (distância de acionamento), peça de impressão de 1 dia, ajuste de tolerâncias, atualizar parâmetros do `.scad`.
+5. Testes: imprimir as peças de teste de 1 dia da **v3** (dobradiça de encaixe, saia, trava, janela do reed), medir o ESP32 real e ajustar os parâmetros da seção 8.5; reed + ímã na protoboard.
 6. Evoluções: 3 turnos, botão arcade grande, texto gravado, tampa que fecha com trava.
 7. Documentação final para a cadeira: arquitetura, diagrama, BOM com preços atuais, resultados de testes, aviso de que não é dispositivo médico.

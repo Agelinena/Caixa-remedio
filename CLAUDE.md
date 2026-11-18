@@ -23,10 +23,12 @@ modelo 3D, máquina de estados, arquitetura e pendências.
 ```
 CLAUDE.md
 docs/DOCUMENTACAO.md          documentação completa (fonte da verdade)
-cad/caixa_remedios.scad       modelo 3D paramétrico (OpenSCAD 2021.01)
+cad/caixa_remedios.scad       modelo 3D paramétrico v3 (OpenSCAD 2021.01)
 cad/stl/                      STLs gerados (corpo, base, 7 tampas, 3 peças de teste de 1 dia)
-cad/preview/                  prévias do modelo (montada, aberta, interior, tampas)
-cad/caixa_remedios_v1.scad    versão antiga, com parafusos (só referência)
+cad/preview/                  prévias (montada, aberta, interior, tampas, componentes, corte do reed)
+cad/caixa_remedios_v2.scad    v2 (primeira impressão, pino de filamento) — só referência
+cad/caixa_remedios_v1.scad    v1, com parafusos — só referência
+cad/stl_binario.js            converte os STL do OpenSCAD para binário (deno)
 firmware/                     PlatformIO, ESP32 (src/main.cpp, include/pins.h)
 app/                          app Flutter (Android); android_extra/ sobrepõe o android/ gerado no Actions
 .github/workflows/            APK do app e .bin do firmware
@@ -49,4 +51,4 @@ openscad -o cad/stl/teste_base_1dia.stl  -D n=1 -D 'part="base"'  cad/caixa_reme
 2. Diagrama de ligações (esquema elétrico) a partir da pinagem.
 3. Persistência da agenda (NVS) e sincronização com Firebase.
 4. App (agenda, histórico, notificações, cuidador).
-5. Iterar o modelo 3D depois do teste de impressão de 1 dia.
+5. Modelo 3D: v3 gerada em 2026-11-18 a partir da impressão da v2; imprimir o teste de 1 dia da v3 e ajustar (seção 8.5).
