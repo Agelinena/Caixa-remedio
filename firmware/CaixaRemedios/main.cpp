@@ -30,7 +30,7 @@
 #include <vector>
 #include "pins.h"
 
-#define FW_VERSION "0.2.0"
+#define FW_VERSION "0.2.1"
 static const char* AP_SENHA   = "remedios";          // senha da rede de configuracao (min. 8)
 static const char* ARQ_CFG    = "/config.json";      // so para migrar da 0.1 (agora a agenda fica na NVS)
 static const char* ARQ_EV     = "/eventos.jsonl";
@@ -438,9 +438,16 @@ void apagaTudo() {
 
 void botaoTick() {
   static bool apertado = false, fez3 = false, fez10 = false, fez20 = false;
-  static uint32_t desde = 0;
+  static bool armado = false;                // so vale depois de ficar solto 2 s seguidos
+  static uint32_t desde = 0, soltoDesde = 0;
   bool b = digitalRead(PIN_BOTAO) == LOW;
   uint32_t m = millis();
+  // Protecao: botao preso, mal ligado ou pino flutuando nao apaga nada sozinho.
+  if (!armado) {
+    if (b) soltoDesde = m;
+    else if (m - soltoDesde >= 2000) { armado = true; Serial.println("Botao pronto"); }
+    return;
+  }
   if (b && !apertado) { apertado = true; desde = m; fez3 = fez10 = fez20 = false; }
   if (b && apertado) {
     if (!fez3 && m - desde >= 3000) {                                // 3 s: parear o app

@@ -101,7 +101,7 @@ As prévias 3D reais do modelo estão em `cad/preview/` (ver seção 8.10).
 | LED | 7 | Indicador do dia | Já possui. **Tamanho não medido** (3 mm ou 5 mm) |
 | Resistor 220–330 Ω | 7 | Limitar corrente dos LEDs | |
 | ~~74HC595~~ | 0 | — | Não é mais usado: LEDs ligados direto no ESP32 (o usuário não tem o 595; o CD4511 que ele tem é decodificador de 7 segmentos e não acende um LED por vez) |
-| Resistor 10 kΩ | 3 | Pull-up dos pinos 34, 35 e 36 | Esses pinos não têm pull-up interno |
+| ~~Resistor 10 kΩ~~ | 0 | — | Não precisa mais (desde o firmware 0.2.1 todas as entradas usam o pull-up interno) |
 | Buzzer ativo 5 V | 1 | Alarme sonoro | Acionar via transistor |
 | Transistor NPN (BC547 ou 2N2222) + resistor 1 kΩ | 1 + 1 | Aciona o buzzer | |
 | Botão de pressão pequeno | 1 | Silenciar o alarme | Tátil de placa provavelmente. Para o idoso, um botão arcade grande seria melhor (evolução) |
@@ -130,20 +130,22 @@ Placa: ESP32 DevKit 30 pinos. Evitar para saídas: GPIO 0, 2, 5, 12, 15 (boot/st
 | Função | Pinos do ESP32 | Detalhe |
 |---|---|---|
 | RTC DS3231 (I2C) | SDA = **21**, SCL = **22** | Padrão do ESP32. Não usar esses pinos para mais nada |
-| LEDs (7), dias 0..6 | **13, 14, 27, 16, 15, 18, 19** | GPIO → resistor 330 Ω → LED (perna longa) → GND. Nível alto = aceso. A placa do usuário **não tem o GPIO 17**; o 15 (boot) serve porque o LED para o GND o mantém em LOW no boot, que só desliga o log da ROM |
-| Reeds (7), dias 0..6 | **23, 25, 26, 32, 33, 34, 35** | cada reed entre o GPIO e GND. 23–33: pull-up interno. **34 e 35: resistor de 10 kΩ do pino para o 3V3** |
+| LEDs (7), dias 0..6 | **13, 14, 27, 16 (RX2), 17 (TX2), 18, 19** | GPIO → resistor 330 Ω → LED (perna longa) → GND. Nível alto = aceso. Na placa do usuário o 16 e o 17 estão marcados como **RX2** e **TX2** |
+| Reeds (7), dias 0..6 | **23, 25, 26, 32, 33, 5, 15** | cada reed entre o GPIO e GND, pull-up interno. 5 e 15 são pinos de boot, mas o reed só os leva ao GND (boot normal; 15 em LOW só esconde o log da ROM) |
 | Buzzer (via transistor) | **4** | GPIO → 1 kΩ → base do NPN; emissor em GND; buzzer entre 5 V (VIN) e coletor |
-| Botão | **36 (VP)** | botão entre o GPIO e GND + **resistor de 10 kΩ do pino para o 3V3** |
-| Reserva | 39 (VN, só entrada) | |
+| Botão | **12** | botão entre o GPIO e GND, pull-up interno ligado pelo firmware. O 12 precisa estar em LOW no boot e o botão só o leva ao GND. Só vale depois de ficar solto 2 s seguidos após ligar |
+| Livres | 2, 34, 35, 36 (VP), 39 (VN) | 2 tem o LED azul da placa; 34–39 são só entrada e sem pull-up |
 
-Mudança de 2026-11-18: o 74HC595 saiu (o usuário não tem; o CD4511 não serve). LEDs direto nos GPIOs;
-reeds e botão foram para pinos que sobraram, incluindo os só-entrada 34, 35 e 36. Só o GPIO 15 (boot) é usado, para um LED (a placa não tem o 17).
+Mudanças de 2026-11-18: o 74HC595 saiu (o usuário não tem; o CD4511 não serve) e os LEDs foram direto nos GPIOs.
+Na 0.2.1 (foto da placa) os pinos foram trocados para **não precisar de nenhum resistor de pull-up**: antes o botão no
+GPIO 36 sem o resistor de 10 kΩ fica flutuando e o firmware pode "ver" o botão segurado 10 s e apagar o Wi-Fi
+(provável causa do Wi-Fi perdido no primeiro teste; não confirmado pelo Monitor Serial).
 
 ### 5.1 Mapeamento sugerido (PROPOSTO)
 Índice do dia 0 = Domingo … 6 = Sábado. `REED_PINS[i]` e `LED_PINS[i]` correspondem ao mesmo dia.
 ```cpp
-const uint8_t LED_PINS[7]  = {13, 14, 27, 16, 15, 18, 19};
-const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 34, 35};
+const uint8_t LED_PINS[7]  = {13, 14, 27, 16, 17, 18, 19};
+const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 5, 15};
 ```
 
 ### 5.2 Lógica elétrica dos reeds
@@ -156,7 +158,7 @@ const uint8_t REED_PINS[7] = {23, 25, 26, 32, 33, 34, 35};
 - **LEDs azuis/brancos** (queda de ~3 V) acendem fraco no GPIO de 3,3 V (usar resistor de 100 Ω). Vermelho, amarelo e verde funcionam bem. Se forem azuis/brancos, rever a alimentação/ligação.
 - **GPIO 14** emite um pulso PWM breve no boot: o LED de segunda pode piscar ao ligar (o `setup()` apaga logo em seguida).
 - Corrente: cada GPIO aguenta ~20 mA; com 330 Ω um LED vermelho puxa ~4–5 mA. Normalmente só um LED acende por vez.
-- **GPIO 36/39** podem dar pulsos curtos falsos quando o ADC está ligado; o firmware não usa o ADC e o botão tem debounce.
+- **Não usar como entrada de reed/botão** os pinos 34–39 (sem pull-up interno) nem o 2 (LED azul da placa puxa o pino). **Nunca** ligar nada que puxe o 12 para o 3V3 (o ESP32 não liga).
 - Resistor em série em cada LED (220–330 Ω).
 - Se uma placa ESP32 for de 38 pinos em vez de 30, a posição física dos pinos muda; a numeração GPIO continua válida.
 
